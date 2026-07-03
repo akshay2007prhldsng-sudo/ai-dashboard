@@ -59,3 +59,14 @@ model Report {
   json      String // AI coaching report payload
   createdAt DateTime @default(now())
 }
+
+// Community: vote on which new instruments to add next.
+model CommunityProposal {
+  id          String   @id @default(cuid())
+  symbol      String   @unique
+  name        String
+  category    String   @default("fx")
+  description String   @default("")
+  votes       Int      @default(0)
+  createdAt   DateTime @default(now())
+}

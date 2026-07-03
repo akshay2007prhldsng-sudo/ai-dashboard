@@ -11,6 +11,11 @@ Six fully built tabs:
 5. **Dynamic Journal** — the core: trade journal with KPIs (Net P&L, Profit Factor, Win Rate, Avg Win/Loss), equity curve, performance heatmap, P&L by day of week, trade-quality radar, AI performance overview, **plus a full risk & trade-management layer**: position-size calculator (NQ/ES tick values, XAUUSD pip value), R-based tracking & expectancy, R-distribution histogram, rule checklist per trade (1:2–1:3 RR, BE at 1.5R, 1R risk), and a risk dashboard with daily/weekly loss limits and warnings.
 6. **Reports** — AI coaching reports (weekly/monthly/quarterly) generated from your own journal, with exportable summaries.
 
+Plus two sidebar pages:
+
+- **Psychology** — emotion & discipline analytics computed from your journal: discipline score, rule-followed vs rule-broken P&L, P&L and win-rate by emotional state, a rolling discipline trend, automatic behavioural/tilt flags (losing streaks, revenge trading, FOMO chasing), and an AI mindset insight (triggers + practices).
+- **Community** — vote on which instruments to add to the desk next; propose new pairs. Votes persist in the database (a beta stub until multi-user accounts land).
+
 Covered markets: XAUUSD, XAGUSD, EURUSD, GBPUSD, USDJPY, EURJPY, GBPJPY, GBPEUR, EURGBP, AUDUSD, USDCAD, US30, US100 (NQ), SPX (ES), BTCUSD, Brent oil — with **US100, SPX and XAUUSD as primary instruments**.
 
 ## Tech stack
@@ -83,5 +88,6 @@ Provider adapters are chained (Twelve Data → Finnhub → FMP) and swappable; e
 
 - `GET /api/market/quotes|candles/:id|capital-flow|currency-strength|relative-strength|meta`
 - `GET /api/news` · `GET /api/calendar?from&to`
-- `POST /api/ai/bias|edge-factor|briefing|calendar-event|coaching` · `GET /api/ai/reports|status`
-- `GET|POST|PUT|DELETE /api/journal/trades` · `GET /api/journal/stats` · `GET|PUT /api/journal/settings`
+- `POST /api/ai/bias|edge-factor|briefing|calendar-event|coaching|psychology` · `GET /api/ai/reports|status`
+- `GET|POST|PUT|DELETE /api/journal/trades` · `GET /api/journal/stats|psychology` · `GET|PUT /api/journal/settings`
+- `GET|POST /api/community` · `POST /api/community/:id/vote`

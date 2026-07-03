@@ -306,6 +306,53 @@ aiRouter.post("/coaching", async (req, res) => {
   res.json({ ...result, reportId: saved.id, period, timestamp: Date.now() });
 });
 
+// ---- POST /api/ai/psychology — mindset/behaviour insight from journal ----
+aiRouter.post("/psychology", async (req, res) => {
+  if (!aiAvailable()) { res.status(503).json(UNAVAILABLE); return; }
+  const period = String(req.body?.period ?? "QUARTER").toUpperCase();
+  const days = period === "WEEK" ? 7 : period === "MONTH" ? 30 : 90;
+  const from = new Date(Date.now() - days * 86_400_000);
+  const trades = await prisma.trade.findMany({
+    where: { openedAt: { gte: from }, isOpen: false },
+    orderBy: { openedAt: "asc" },
+  });
+  if (!trades.length) {
+    res.status(404).json({ error: "No closed trades in this period — log trades with emotion tags first" });
+    return;
+  }
+  const summary = trades.map((t) => ({
+    instrument: t.instrument,
+    pnl: t.pnl,
+    rMultiple: t.rMultiple,
+    emotion: t.emotion || "untagged",
+    followedRules: t.ruleRR && t.ruleBreakEven && t.ruleRisk,
+    session: t.session,
+  }));
+  const result = await aiJson({
+    cacheKey: `ai:psych:${period}:${trades.length}:${trades[trades.length - 1].id}`,
+    ttlMs: 60 * 60_000,
+    prompt:
+      `You are a trading psychology coach. Analyse the trader's emotional and behavioural patterns from these REAL journal entries ` +
+      `(each carries an emotion tag, whether the trade followed the rules, and its result). Focus on mindset, not strategy.\n` +
+      `${JSON.stringify(summary, null, 2)}\n` +
+      `Return: a mindset assessment paragraph (which emotional states help vs hurt, using the real numbers); ` +
+      `2-3 triggers (recurring emotional/behavioural triggers you detect); and 2-3 practices (concrete mental/process habits to adopt).`,
+    schema: {
+      type: "object",
+      properties: {
+        assessment: { type: "string" },
+        triggers: { type: "array", items: { type: "string" } },
+        practices: { type: "array", items: { type: "string" } },
+      },
+      required: ["assessment", "triggers", "practices"],
+      additionalProperties: false,
+    },
+    maxTokens: 2000,
+  });
+  if (!result) { res.status(502).json({ error: "AI analysis failed" }); return; }
+  res.json({ ...result, period, timestamp: Date.now() });
+});
+
 // ---- GET /api/ai/reports — stored coaching reports ----
 aiRouter.get("/reports", async (_req, res) => {
   const reports = await prisma.report.findMany({ orderBy: { createdAt: "desc" }, take: 20 });

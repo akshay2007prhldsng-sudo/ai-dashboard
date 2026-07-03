@@ -232,3 +232,88 @@ journalRouter.get("/stats", async (req, res) => {
     timestamp: Date.now(),
   });
 });
+
+// ---- Psychology analytics: emotion performance, discipline trend, tilt flags ----
+
+journalRouter.get("/psychology", async (req, res) => {
+  const period = String(req.query.period ?? "QUARTER");
+  const trades = await prisma.trade.findMany({
+    where: { openedAt: { gte: periodStart(period) }, isOpen: false },
+    orderBy: { openedAt: "asc" },
+  });
+
+  // Per-emotion aggregation.
+  const emoMap = new Map<string, { count: number; pnl: number; wins: number; rSum: number; rN: number }>();
+  for (const t of trades) {
+    const e = t.emotion?.trim() || "Untagged";
+    const cur = emoMap.get(e) ?? { count: 0, pnl: 0, wins: 0, rSum: 0, rN: 0 };
+    cur.count += 1;
+    cur.pnl += t.pnl;
+    if (t.pnl > 0) cur.wins += 1;
+    if (t.rMultiple != null) { cur.rSum += t.rMultiple; cur.rN += 1; }
+    emoMap.set(e, cur);
+  }
+  const emotions = [...emoMap.entries()]
+    .map(([emotion, v]) => ({
+      emotion,
+      count: v.count,
+      pnl: Number(v.pnl.toFixed(2)),
+      winRate: v.count ? Number(((v.wins / v.count) * 100).toFixed(1)) : 0,
+      avgR: v.rN ? Number((v.rSum / v.rN).toFixed(2)) : null,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // Discipline trend: rolling rule-adherence % over the trade sequence (window 5).
+  const disciplineTrend: { t: string; discipline: number; pnl: number }[] = [];
+  const win = 5;
+  for (let i = 0; i < trades.length; i++) {
+    const slice = trades.slice(Math.max(0, i - win + 1), i + 1);
+    const adhered = slice.filter((t) => t.ruleRR && t.ruleBreakEven && t.ruleRisk).length;
+    disciplineTrend.push({
+      t: (trades[i].closedAt ?? trades[i].openedAt).toISOString(),
+      discipline: Number(((adhered / slice.length) * 100).toFixed(0)),
+      pnl: trades[i].pnl,
+    });
+  }
+
+  // Tilt / behavioural flags.
+  const flags: string[] = [];
+  let maxLossStreak = 0, cur = 0;
+  for (const t of trades) {
+    if (t.pnl < 0) { cur += 1; maxLossStreak = Math.max(maxLossStreak, cur); } else cur = 0;
+  }
+  if (maxLossStreak >= 3) flags.push(`Longest losing streak: ${maxLossStreak} trades — watch for tilt after consecutive losses.`);
+  const byEmotion = new Map(emotions.map((e) => [e.emotion, e]));
+  const revenge = byEmotion.get("Revenge");
+  if (revenge && revenge.pnl < 0) flags.push(`"Revenge"-tagged trades are net ${revenge.pnl.toFixed(0)} over ${revenge.count} trades — a costly pattern.`);
+  const fomo = byEmotion.get("FOMO");
+  if (fomo && fomo.winRate < 40) flags.push(`FOMO entries win only ${fomo.winRate}% of the time — likely chasing.`);
+  const disciplined = byEmotion.get("Disciplined");
+  if (disciplined && disciplined.pnl > 0) flags.push(`"Disciplined" trades are your most profitable emotional state (+${disciplined.pnl.toFixed(0)}).`);
+  // Rule-violation trades vs clean trades P&L comparison.
+  const clean = trades.filter((t) => t.ruleRR && t.ruleBreakEven && t.ruleRisk);
+  const violated = trades.filter((t) => !(t.ruleRR && t.ruleBreakEven && t.ruleRisk));
+  const cleanPnl = clean.reduce((s, t) => s + t.pnl, 0);
+  const violatedPnl = violated.reduce((s, t) => s + t.pnl, 0);
+  if (violated.length && violatedPnl < cleanPnl && clean.length) {
+    flags.push(`Rule-following trades net ${cleanPnl.toFixed(0)} vs ${violatedPnl.toFixed(0)} when rules were broken.`);
+  }
+
+  const disciplineScore = trades.length
+    ? Number(((clean.length / trades.length) * 100).toFixed(0))
+    : null;
+
+  res.json({
+    period,
+    totalTrades: trades.length,
+    disciplineScore,
+    emotions,
+    disciplineTrend,
+    flags,
+    cleanVsViolated: {
+      clean: { count: clean.length, pnl: Number(cleanPnl.toFixed(2)) },
+      violated: { count: violated.length, pnl: Number(violatedPnl.toFixed(2)) },
+    },
+    timestamp: Date.now(),
+  });
+});

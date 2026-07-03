@@ -157,3 +157,35 @@ export interface CoachingReport {
   patterns: string[];
   createdAt?: string;
 }
+
+export interface Psychology {
+  period: string;
+  totalTrades: number;
+  disciplineScore: number | null;
+  emotions: { emotion: string; count: number; pnl: number; winRate: number; avgR: number | null }[];
+  disciplineTrend: { t: string; discipline: number; pnl: number }[];
+  flags: string[];
+  cleanVsViolated: {
+    clean: { count: number; pnl: number };
+    violated: { count: number; pnl: number };
+  };
+  timestamp: number;
+}
+
+export interface PsychologyInsight {
+  period: string;
+  assessment: string;
+  triggers: string[];
+  practices: string[];
+  timestamp: number;
+}
+
+export interface CommunityProposal {
+  id: string;
+  symbol: string;
+  name: string;
+  category: string;
+  description: string;
+  votes: number;
+  createdAt: string;
+}

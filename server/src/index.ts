@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { anyProviderConfigured } from "./providers/marketdata.js";
 import { aiRouter } from "./routes/ai.js";
 import { calendarRouter } from "./routes/calendar.js";
+import { communityRouter } from "./routes/community.js";
 import { journalRouter } from "./routes/journal.js";
 import { marketRouter } from "./routes/market.js";
 import { newsRouter } from "./routes/news.js";
@@ -31,6 +32,7 @@ app.use("/api/news", newsRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/journal", journalRouter);
+app.use("/api/community", communityRouter);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

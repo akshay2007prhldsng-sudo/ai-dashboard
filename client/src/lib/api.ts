@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  BiasResult, Briefing, CandleSeries, CoachingReport, EconomicEvent, EdgeResult,
-  InstrumentMeta, JournalStats, NewsItem, Quote, Settings, Trade,
+  BiasResult, Briefing, CandleSeries, CoachingReport, CommunityProposal, EconomicEvent, EdgeResult,
+  InstrumentMeta, JournalStats, NewsItem, Psychology, PsychologyInsight, Quote, Settings, Trade,
 } from "./types";
 
 async function get<T>(url: string): Promise<T> {
@@ -211,5 +211,47 @@ export function useDeleteTrade() {
       qc.invalidateQueries({ queryKey: ["trades"] });
       qc.invalidateQueries({ queryKey: ["journal-stats"] });
     },
+  });
+}
+
+// ---- psychology ----
+
+export function usePsychology(period: string) {
+  return useQuery({
+    queryKey: ["psychology", period],
+    queryFn: () => get<Psychology>(`/api/journal/psychology?period=${period}`),
+  });
+}
+
+export function usePsychologyInsight() {
+  return useMutation({
+    mutationFn: (period: string) => send<PsychologyInsight>("POST", "/api/ai/psychology", { period }),
+  });
+}
+
+// ---- community ----
+
+export function useCommunity() {
+  return useQuery({
+    queryKey: ["community"],
+    queryFn: () => get<{ proposals: CommunityProposal[] }>("/api/community"),
+  });
+}
+
+export function useVoteProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, direction }: { id: string; direction: "up" | "down" }) =>
+      send("POST", `/api/community/${id}/vote`, { direction }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["community"] }),
+  });
+}
+
+export function useProposePair() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: { symbol: string; name: string; category: string; description: string }) =>
+      send("POST", "/api/community", p),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["community"] }),
   });
 }

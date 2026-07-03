@@ -1,0 +1,61 @@
+// APfx HybridDash — journal + settings storage.
+// SQLite for local-first; change provider to "postgresql" to migrate to Postgres/Supabase.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Trade {
+  id         String   @id @default(cuid())
+  instrument String
+  direction  String // LONG | SHORT
+  openedAt   DateTime
+  closedAt   DateTime?
+  session    String // LONDON | NEW_YORK | OVERLAP | ASIA | OTHER
+  account    String  @default("Default")
+  source     String  @default("Manual")
+
+  entry     Float
+  stopLoss  Float?
+  takeProfit Float?
+  size      Float // lots or contracts
+
+  pnl       Float // realized P&L in account currency
+  rMultiple Float? // achieved R (computed from entry/SL when possible)
+
+  notes   String @default("")
+  emotion String @default("") // psychology tag
+
+  // Rule checklist (trader's fixed framework: 1:2–1:3 RR, BE at 1.5R, 1R risk per trade)
+  ruleRR        Boolean @default(false)
+  ruleBreakEven Boolean @default(false)
+  ruleRisk      Boolean @default(false)
+
+  isOpen Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Settings {
+  id             Int   @id @default(1)
+  accountSize    Float @default(10000)
+  riskPct        Float @default(1) // % of account risked per trade (1R)
+  dailyLossLimit Float @default(3) // % of account
+  weeklyLossLimit Float @default(6) // % of account
+  maxOpenPositions Int @default(3)
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  period    String // WEEK | MONTH | QUARTER
+  fromDate  DateTime
+  toDate    DateTime
+  json      String // AI coaching report payload
+  createdAt DateTime @default(now())
+}

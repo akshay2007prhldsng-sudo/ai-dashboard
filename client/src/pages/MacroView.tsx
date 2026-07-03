@@ -3,8 +3,9 @@ import { Link, useParams } from "react-router-dom";
 import {
   CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { Gauge, LevelSlider } from "../components/Gauge";
+import { Gauge } from "../components/Gauge";
 import { MiniChart } from "../components/MiniChart";
+import { BearingChart, FlowWaveform, GlobeGlyph, PulseLine, TrafficSlider } from "../components/RegimeVisuals";
 import {
   AiTag, Card, ChangePct, LastUpdated, LiveBadge, SectionTitle, Spinner, Unavailable,
 } from "../components/ui";
@@ -128,26 +129,32 @@ export function MacroView() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <RegimeCard
           title="Flow"
+          subtitle="Participation"
           headline={edge.data?.flow.level}
-          headlineColor={edge.data?.flow.level === "Crowded" ? "text-bear" : edge.data?.flow.level === "Thin" ? "text-amber-400" : "text-bull"}
+          headlineColor={edge.data?.flow.level === "Crowded" ? "text-bear" : edge.data?.flow.level === "Thin" ? "text-amber" : "text-bull"}
           bullets={edge.data?.flow.bullets}
           loading={edge.isLoading}
-          slider={edge.data ? <LevelSlider levels={["Thin", "Healthy", "Crowded"]} active={edge.data.flow.level} activeColor={edge.data.flow.level === "Crowded" ? TOKENS.bear : TOKENS.accent} /> : null}
+          visual={edge.data ? <FlowWaveform level={edge.data.flow.level} /> : null}
+          slider={edge.data ? <TrafficSlider levels={["Thin", "Healthy", "Crowded"]} active={edge.data.flow.level} /> : null}
         />
         <RegimeCard
           title="Bearing"
+          subtitle="Directional structure"
           headline={edge.data?.bearing.label}
-          headlineColor={edge.data?.bearing.label.toLowerCase().includes("down") ? "text-bear" : edge.data?.bearing.label.toLowerCase().includes("up") ? "text-bull" : "text-ink"}
+          headlineColor={edge.data?.bearing.label.toLowerCase().includes("down") ? "text-bear" : edge.data?.bearing.label.toLowerCase().includes("up") ? "text-bull" : "text-amber"}
           bullets={edge.data?.bearing.bullets}
           loading={edge.isLoading}
+          visual={edge.data ? <BearingChart label={edge.data.bearing.label} /> : null}
         />
         <RegimeCard
           title="Pulse"
+          subtitle="Volatility regime"
           headline={edge.data?.pulse.level}
           headlineColor={edge.data?.pulse.level === "Wild" ? "text-bear" : edge.data?.pulse.level === "Quiet" ? "text-ink-muted" : "text-bull"}
           bullets={edge.data?.pulse.bullets}
           loading={edge.isLoading}
-          slider={edge.data ? <LevelSlider levels={["Quiet", "Tradable", "Wild"]} active={edge.data.pulse.level} activeColor={edge.data.pulse.level === "Wild" ? TOKENS.bear : TOKENS.accent} /> : null}
+          visual={edge.data ? <PulseLine level={edge.data.pulse.level} /> : null}
+          slider={edge.data ? <TrafficSlider levels={["Quiet", "Tradable", "Wild"]} active={edge.data.pulse.level} /> : null}
         />
       </div>
 
@@ -194,9 +201,12 @@ function PolicyPanel({ edge }: { edge: ReturnType<typeof useEdge>["data"] }) {
       <SectionTitle title="Market Policy" />
       {edge ? (
         <>
-          <p className={`text-lg font-bold tracking-[0.3em] text-center my-3 ${stanceColor}`}>
-            {edge.policy.stance.toUpperCase()}
-          </p>
+          <div className="flex items-center gap-3 my-2">
+            <GlobeGlyph tone={edge.policy.stance === "Hawkish" ? TOKENS.bear : edge.policy.stance === "Dovish" ? TOKENS.bull : TOKENS.muted} />
+            <p className={`text-lg font-bold tracking-[0.3em] ${stanceColor}`}>
+              {edge.policy.stance.toUpperCase()}
+            </p>
+          </div>
           <p className="text-[11px] font-semibold">Global Economic Outlook</p>
           <p className={`text-[11px] text-ink-muted leading-relaxed ${open ? "" : "line-clamp-3"}`}>{edge.policy.outlook}</p>
           <button onClick={() => setOpen(!open)} className="text-[10px] text-accent-bright mt-1 hover:underline">
@@ -211,21 +221,27 @@ function PolicyPanel({ edge }: { edge: ReturnType<typeof useEdge>["data"] }) {
 }
 
 function RegimeCard({
-  title, headline, headlineColor = "text-ink", bullets, loading, slider,
+  title, subtitle, headline, headlineColor = "text-ink", bullets, loading, slider, visual,
 }: {
   title: string;
+  subtitle?: string;
   headline?: string;
   headlineColor?: string;
   bullets?: string[];
   loading: boolean;
   slider?: React.ReactNode;
+  visual?: React.ReactNode;
 }) {
   return (
     <Card>
-      <p className="text-xs text-ink-muted mb-2">{title}</p>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs font-medium text-ink-muted">{title}</p>
+        {subtitle && <p className="text-[10px] text-ink-muted/70">{subtitle}</p>}
+      </div>
       {headline ? (
         <>
-          <p className={`text-center text-base font-bold tracking-[0.2em] my-3 ${headlineColor}`}>
+          {visual && <div className="my-2">{visual}</div>}
+          <p className={`text-center text-base font-bold tracking-[0.2em] ${headlineColor}`}>
             {headline.toUpperCase()}
           </p>
           {slider}

@@ -5,9 +5,9 @@ export default {
     extend: {
       colors: {
         // APfx HybridDash design tokens — institutional dark terminal.
-        // Neutral slate-grey panels (matching the HybridTrader reference);
-        // emerald is reserved as an accent, not a surface tint.
-        app: { DEFAULT: "#0A0C0F", alt: "#0D1014" },
+        // Green-tinted near-black app background; neutral slate-grey panels
+        // sitting on top of it (matching the HybridTrader reference).
+        app: { DEFAULT: "#070B09", alt: "#0A0F0D" },
         card: { DEFAULT: "#13171C", alt: "#181D24", border: "#272E38" },
         accent: { DEFAULT: "#10B981", bright: "#34D399", hover: "#059669" },
         bull: "#22C55E",

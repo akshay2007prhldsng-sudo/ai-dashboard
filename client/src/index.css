@@ -10,8 +10,8 @@ body,
 
 body {
   @apply bg-app text-ink font-sans antialiased;
-  background: radial-gradient(1100px 560px at 50% -12%, rgba(56, 189, 248, 0.05), transparent),
-    linear-gradient(180deg, #0a0c0f, #0d1014);
+  background: radial-gradient(1100px 560px at 50% -12%, rgba(16, 185, 129, 0.09), transparent),
+    linear-gradient(180deg, #070b09, #0a0f0d);
   font-variant-numeric: tabular-nums;
 }
 

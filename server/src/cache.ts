@@ -12,7 +12,19 @@ export function cached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>)
   });
 }
 
+/** Return the cached value only if still within its TTL. */
+export function cacheGetFresh<T>(key: string): T | undefined {
+  const hit = store.get(key) as Entry<T> | undefined;
+  return hit && hit.expiresAt > Date.now() ? hit.value : undefined;
+}
+
+/** Return the last cached value regardless of expiry (stale-while-error). */
 export function cacheGetStale<T>(key: string): T | undefined {
   const hit = store.get(key) as Entry<T> | undefined;
   return hit?.value;
+}
+
+/** Manually store a value (used to seed the cache from a batch fetch). */
+export function cacheSet<T>(key: string, ttlMs: number, value: T): void {
+  store.set(key, { value, expiresAt: Date.now() + ttlMs });
 }

@@ -17,6 +17,21 @@ async function td(path: string, params: Record<string, string>): Promise<any> {
 
 const INTERVAL_MAP: Record<string, string> = { "5min": "5min", "1h": "1h", "1day": "1day" };
 
+function parseQuote(raw: any, inst: Instrument): Quote | null {
+  const price = Number(raw?.close);
+  if (!Number.isFinite(price)) return null;
+  const prev = Number(raw.previous_close);
+  return {
+    id: inst.id,
+    price,
+    previousClose: Number.isFinite(prev) ? prev : undefined,
+    change: Number(raw.change) || (Number.isFinite(prev) ? price - prev : 0),
+    changePct: Number(raw.percent_change) || (Number.isFinite(prev) && prev !== 0 ? ((price - prev) / prev) * 100 : 0),
+    timestamp: Date.now(),
+    provider: "twelvedata",
+  };
+}
+
 export const twelveDataProvider: QuoteProvider = {
   name: "twelvedata",
   available: () => Boolean(config.twelveDataKey),
@@ -24,19 +39,31 @@ export const twelveDataProvider: QuoteProvider = {
 
   async getQuote(inst) {
     const json = await td("/quote", { symbol: inst.twelveData! });
-    const price = Number(json.close);
-    const prev = Number(json.previous_close);
-    if (!Number.isFinite(price)) throw new Error(`TwelveData: no price for ${inst.id}`);
-    const quote: Quote = {
-      id: inst.id,
-      price,
-      previousClose: Number.isFinite(prev) ? prev : undefined,
-      change: Number(json.change) || (Number.isFinite(prev) ? price - prev : 0),
-      changePct: Number(json.percent_change) || (Number.isFinite(prev) && prev !== 0 ? ((price - prev) / prev) * 100 : 0),
-      timestamp: Date.now(),
-      provider: this.name,
-    };
+    const quote = parseQuote(json, inst);
+    if (!quote) throw new Error(`TwelveData: no price for ${inst.id}`);
     return quote;
+  },
+
+  // One HTTP request for many symbols (comma-separated). Twelve Data returns an
+  // object keyed by symbol for multi-symbol requests, or a bare quote for one.
+  async getQuotesBatch(insts) {
+    const withSymbol = insts.filter((i) => i.twelveData);
+    if (!withSymbol.length) return {};
+    const json = await td("/quote", { symbol: withSymbol.map((i) => i.twelveData!).join(",") });
+    const out: Record<string, Quote> = {};
+    if (withSymbol.length === 1) {
+      const q = parseQuote(json, withSymbol[0]);
+      if (q) out[withSymbol[0].id] = q;
+      return out;
+    }
+    for (const inst of withSymbol) {
+      const raw = json?.[inst.twelveData!];
+      if (raw && raw.status !== "error") {
+        const q = parseQuote(raw, inst);
+        if (q) out[inst.id] = q;
+      }
+    }
+    return out;
   },
 
   async getCandles(inst, interval, points) {

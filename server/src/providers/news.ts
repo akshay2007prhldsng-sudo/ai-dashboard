@@ -1,7 +1,9 @@
+import { aiAvailable } from "../ai/client.js";
 import { cached } from "../cache.js";
 import { config } from "../config.js";
 import { finnhubNews } from "./finnhub.js";
 import type { NewsItem } from "./types.js";
+import { newsViaWebSearch } from "./websearch.js";
 
 async function marketauxNews(): Promise<NewsItem[]> {
   const qs = new URLSearchParams({
@@ -26,7 +28,11 @@ async function marketauxNews(): Promise<NewsItem[]> {
   }));
 }
 
-/** Live news feed: Finnhub primary, Marketaux fallback. Empty list => UI shows "data unavailable". */
+/**
+ * Live news feed. A dedicated provider key (Finnhub/Marketaux) wins when present;
+ * otherwise Claude's web-search tool retrieves live headlines (hybrid mode — no
+ * news-provider key needed, only ANTHROPIC_API_KEY). Empty => UI shows "data unavailable".
+ */
 export function getNews(): Promise<NewsItem[]> {
   return cached("news", 60_000, async () => {
     if (config.finnhubKey) {
@@ -41,6 +47,13 @@ export function getNews(): Promise<NewsItem[]> {
         return await marketauxNews();
       } catch (err) {
         console.warn(`[news] marketaux failed: ${(err as Error).message}`);
+      }
+    }
+    if (aiAvailable()) {
+      try {
+        return await newsViaWebSearch();
+      } catch (err) {
+        console.warn(`[news] web-search failed: ${(err as Error).message}`);
       }
     }
     return [];

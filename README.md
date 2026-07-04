@@ -27,7 +27,16 @@ Covered markets: XAUUSD, XAGUSD, EURUSD, GBPUSD, USDJPY, EURJPY, GBPJPY, GBPEUR,
 
 ## Data integrity
 
-Everything labelled **Live** comes from a real provider API. Derived metrics (capital flow, currency strength, relative strength, sentiment breadth) are computed from real quotes/candles and labelled **computed**. When no provider can serve a symbol, panels show **"data unavailable"** — nothing is fabricated. The AI layer is instructed to summarise only the fetched data and to treat its output as decision support, never a trade signal.
+Everything labelled **Live** comes from a real source. Numeric prices/charts come from a market-data provider API. News and the economic calendar come either from a dedicated provider or — in **hybrid mode** — from **Claude's live `web_search` tool** (labelled provider `web-search`), which retrieves them from real pages at request time. Derived metrics (capital flow, currency strength, relative strength, sentiment breadth) are computed from real quotes/candles and labelled **computed**. When no source can serve a symbol, panels show **"data unavailable"** — nothing is fabricated. The AI layer is instructed to summarise only fetched data and to treat its output as decision support, never a trade signal.
+
+### Hybrid data mode (minimal keys)
+
+You do **not** need the news/calendar provider keys. With just a quote key + `ANTHROPIC_API_KEY`:
+
+- **Quotes & charts** → real market-data provider (exact numbers; web search is not precise enough for tick data or intraday candles).
+- **News, economic calendar, and all macro narrative** → Claude retrieves them live via its `web_search` tool.
+
+A dedicated provider key, when present, always takes priority over web search for its layer.
 
 ## Setup
 
@@ -50,21 +59,20 @@ Open http://localhost:5173.
 
 ## Required keys (`server/.env`)
 
-| Key | Provider | Powers | Free tier |
+| Key | Provider | Powers | Required? |
 |---|---|---|---|
-| `TWELVEDATA_API_KEY` | [Twelve Data](https://twelvedata.com) | Primary quotes + candles (FX, metals, indices, crypto, oil) | ✅ |
-| `FINNHUB_API_KEY` | [Finnhub](https://finnhub.io) | Quote/candle fallback + **news feed** + calendar fallback | ✅ |
-| `FMP_API_KEY` | [FMP](https://financialmodelingprep.com) | Quote/candle fallback + **economic calendar** | ✅ |
-| `MARKETAUX_API_KEY` | [Marketaux](https://marketaux.com) | News fallback (optional) | ✅ |
-| `ANTHROPIC_API_KEY` | [Anthropic](https://console.anthropic.com) | All AI panels (bias, edge factor, briefing, event analysis, coaching) | — |
-| `TRADER_NAME` | — | Dashboard greeting | — |
+| `TWELVEDATA_API_KEY` | [Twelve Data](https://twelvedata.com) | Quotes + candles (FX, metals, indices, crypto, oil) | **Yes** (for prices/charts) |
+| `ANTHROPIC_API_KEY` | [Anthropic](https://console.anthropic.com) | All AI panels **+ live web-search news/calendar** in hybrid mode | **Yes** |
+| `FINNHUB_API_KEY` | [Finnhub](https://finnhub.io) | Quote/candle fallback + news (overrides web search) | Optional |
+| `FMP_API_KEY` | [FMP](https://financialmodelingprep.com) | Quote/candle fallback + calendar (overrides web search) | Optional |
+| `MARKETAUX_API_KEY` | [Marketaux](https://marketaux.com) | Extra news source | Optional |
+| `TRADER_NAME` | — | Dashboard greeting | Optional |
 
-### Fields that still need a provider key
+### What each key unlocks
 
 - **Quotes/candles/capital flow/currency strength** → at least one of `TWELVEDATA_API_KEY`, `FINNHUB_API_KEY`, `FMP_API_KEY`. Index symbols (US30/US100/SPX/VIX/DXY/US10Y) are best covered by Twelve Data or FMP; Finnhub's free tier does not serve them.
-- **Economic calendar** → `FMP_API_KEY` (primary) or `FINNHUB_API_KEY`.
-- **News feed** → `FINNHUB_API_KEY` (primary) or `MARKETAUX_API_KEY`.
-- **All "AI Analysis" panels** → `ANTHROPIC_API_KEY` (model configurable via `ANTHROPIC_MODEL`, default `claude-opus-4-8`).
+- **News feed & economic calendar** → a dedicated key (`FINNHUB_API_KEY`/`FMP_API_KEY`/`MARKETAUX_API_KEY`) **or** `ANTHROPIC_API_KEY` alone (hybrid mode → Claude web search).
+- **All "AI Analysis" panels** → `ANTHROPIC_API_KEY` (model configurable via `ANTHROPIC_MODEL`, default `claude-opus-4-8`; must support the `web_search` tool).
 
 The journal, risk layer, position-size calculator and session clocks work **without any keys**.
 
@@ -76,7 +84,7 @@ The journal, risk layer, position-size calculator and session clocks work **with
   src/components     Card, Gauge, MiniChart, Heatmap, badges…
   src/lib            api hooks, session clocks, position sizing, palette
 /server              Express + Prisma (keys live here)
-  src/providers      twelvedata / finnhub / fmp / news / calendar adapters
+  src/providers      twelvedata / finnhub / fmp / news / calendar / websearch adapters
   src/routes         /api/market /api/news /api/calendar /api/ai /api/journal
   src/ai             Anthropic client (JSON-schema outputs, cached)
   prisma             SQLite schema (Trade, Settings, Report)

@@ -1,7 +1,9 @@
+import { aiAvailable } from "../ai/client.js";
 import { cached } from "../cache.js";
 import { config } from "../config.js";
 import { fmpCalendar } from "./fmp.js";
 import type { EconomicEvent } from "./types.js";
+import { calendarViaWebSearch } from "./websearch.js";
 
 const BASE = "https://finnhub.io/api/v1";
 
@@ -34,7 +36,11 @@ function numOrNull(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Economic calendar: FMP primary, Finnhub fallback. Empty => "data unavailable" in UI. */
+/**
+ * Economic calendar. A dedicated provider key (FMP/Finnhub) wins when present;
+ * otherwise Claude's web-search tool retrieves the calendar live (hybrid mode —
+ * no calendar-provider key needed, only ANTHROPIC_API_KEY). Empty => "data unavailable".
+ */
 export function getCalendar(from: string, to: string): Promise<EconomicEvent[]> {
   return cached(`calendar:${from}:${to}`, 10 * 60_000, async () => {
     if (config.fmpKey) {
@@ -49,6 +55,13 @@ export function getCalendar(from: string, to: string): Promise<EconomicEvent[]> 
         return await finnhubCalendar(from, to);
       } catch (err) {
         console.warn(`[calendar] finnhub failed: ${(err as Error).message}`);
+      }
+    }
+    if (aiAvailable()) {
+      try {
+        return await calendarViaWebSearch(from, to);
+      } catch (err) {
+        console.warn(`[calendar] web-search failed: ${(err as Error).message}`);
       }
     }
     return [];

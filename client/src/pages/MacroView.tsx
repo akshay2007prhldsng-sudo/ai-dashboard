@@ -298,7 +298,7 @@ function RelativeStrengthCard() {
       <SectionTitle
         title="Relative Strength"
         sub="Basket indexed to session open (computed)"
-        right={<span className="text-[10px] text-ink-muted border border-card-border rounded-full px-2 py-0.5">Basket: US30 · DXY · US10Y · VIX</span>}
+        right={<span className="text-[10px] text-ink-muted border border-card-border rounded-full px-2 py-0.5">Basket: US100 · DXY · US10Y · VIX</span>}
       />
       {isLoading ? (
         <Spinner />

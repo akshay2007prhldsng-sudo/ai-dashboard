@@ -6,8 +6,8 @@ import { STRENGTH_CURRENCIES, STRENGTH_PAIRS } from "../instruments.js";
 import { getCandles, getQuotes } from "../providers/marketdata.js";
 
 const CAPITAL_FLOW_IDS = [
-  "US100", "XAUUSD", "COPPER", "VIX", "US10Y", "GBPUSD",
-  "US30", "SPX", "DXY", "USDJPY", "EURUSD", "UKOIL",
+  "US100", "SPX", "XAUUSD", "BTCUSD", "USOIL", "EURUSD", "GBPUSD",
+  "DXY", "US10Y", "VIX",
 ];
 
 export interface FlowRow {
@@ -72,13 +72,13 @@ export async function currencyStrength(): Promise<{
   return { computed: true, currencies: [...STRENGTH_CURRENCIES], points, timestamp: Date.now() };
 }
 
-/** Relative strength basket (US30, DXY, US10Y, VIX) — normalised daily closes. */
+/** Relative strength basket (US100, DXY, US10Y, VIX) — normalised intraday closes. */
 export async function relativeStrength(): Promise<{
   computed: true;
   series: { id: string; points: { t: number; v: number }[] }[];
   timestamp: number;
 }> {
-  const ids = ["US30", "DXY", "US10Y", "VIX"];
+  const ids = ["US100", "DXY", "US10Y", "VIX"];
   const all = await Promise.all(ids.map(async (id) => ({ id, s: await getCandles(id, "1h", 24) })));
   const series = all
     .filter((x) => x.s && x.s.candles.length >= 2)

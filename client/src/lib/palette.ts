@@ -14,7 +14,7 @@ export const CURRENCY_COLORS: Record<string, string> = {
 };
 
 export const BASKET_COLORS: Record<string, string> = {
-  US30: SERIES[0],
+  US100: SERIES[0],
   DXY: SERIES[1],
   US10Y: SERIES[2],
   VIX: SERIES[3],

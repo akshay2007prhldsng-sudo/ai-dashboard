@@ -5,7 +5,7 @@ An AI-driven personal trading terminal for a discretionary intraday trader (Lond
 Six fully built tabs:
 
 1. **Dashboard** — greeting, live session clocks (London/NY/Sydney/Asia), AI Macro Desk preview, "For You" AI pre-session briefing, capital flow, live ticker, live news feed, currency-strength chart.
-2. **AI Macro Desk** — AI bias cards (Bullish/Bearish/Neutral + confidence + drivers) for all 16 markets, with Quick Overview and Deep Dive.
+2. **AI Macro Desk** — AI bias cards (Bullish/Bearish/Neutral + confidence + drivers) for every watchlist market, with Quick Overview and Deep Dive.
 3. **Macro view** — per-instrument deep-dive: Edge Factor (0–100), live price + 1D/5D/1M chart, AI overview, Market Mood gauge (Risk-Off↔Risk-On), Market Policy, Flow/Bearing/Pulse regime cards, market sessions and relative-strength basket.
 4. **Macro calendar** — live economic events on a timeline with a "now" marker, currency/impact filters, and per-event AI analysis with confidence.
 5. **Dynamic Journal** — the core: trade journal with KPIs (Net P&L, Profit Factor, Win Rate, Avg Win/Loss), equity curve, performance heatmap, P&L by day of week, trade-quality radar, AI performance overview, **plus a full risk & trade-management layer**: position-size calculator (NQ/ES tick values, XAUUSD pip value), R-based tracking & expectancy, R-distribution histogram, rule checklist per trade (1:2–1:3 RR, BE at 1.5R, 1R risk), and a risk dashboard with daily/weekly loss limits and warnings.
@@ -16,7 +16,7 @@ Plus two sidebar pages:
 - **Psychology** — emotion & discipline analytics computed from your journal: discipline score, rule-followed vs rule-broken P&L, P&L and win-rate by emotional state, a rolling discipline trend, automatic behavioural/tilt flags (losing streaks, revenge trading, FOMO chasing), and an AI mindset insight (triggers + practices).
 - **Community** — vote on which instruments to add to the desk next; propose new pairs. Votes persist in the database (a beta stub until multi-user accounts land).
 
-Covered markets: XAUUSD, XAGUSD, EURUSD, GBPUSD, USDJPY, EURJPY, GBPJPY, GBPEUR, EURGBP, AUDUSD, USDCAD, US30, US100 (NQ), SPX (ES), BTCUSD, Brent oil — with **US100, SPX and XAUUSD as primary instruments**.
+Watchlist markets: XAUUSD (Gold), US100 (NASDAQ/NQ), SPX (S&P 500/ES), EURUSD, GBPUSD, BTCUSD, USOIL (WTI) — with **US100, SPX and XAUUSD as primary instruments**. Edit `server/src/instruments.ts` to add or remove markets (keep the watchlist short to stay within free-tier rate limits).
 
 ## Tech stack
 

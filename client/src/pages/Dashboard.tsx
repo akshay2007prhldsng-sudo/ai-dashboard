@@ -15,7 +15,7 @@ import { clockIn, fmtPct, fmtPrice, timeAgo } from "../lib/format";
 import { CURRENCY_COLORS, TOKENS } from "../lib/palette";
 import { sessionStatuses } from "../lib/sessions";
 
-const PREVIEW_BIAS = ["XAUUSD", "US100", "SPX", "BTCUSD"];
+const PREVIEW_BIAS = ["US100", "EURUSD", "XAUUSD", "BTCUSD"];
 const TICKER_IDS = ["XAUUSD", "US100", "SPX", "EURUSD", "GBPUSD", "BTCUSD", "USOIL"];
 
 function greeting(): string {

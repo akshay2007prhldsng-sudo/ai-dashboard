@@ -98,8 +98,7 @@ function SessionClocks() {
 
 function BiasPreviewCard({ id }: { id: string }) {
   const { data: quotes } = useQuotes(PREVIEW_BIAS);
-  const { data: ai } = useAiStatus();
-  const bias = useBias(id, ai?.available === true);
+  const bias = useBias(id);
   const q = quotes?.quotes[id];
   return (
     <Card className="!p-3">

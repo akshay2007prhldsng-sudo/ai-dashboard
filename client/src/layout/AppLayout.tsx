@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { useMeta } from "../lib/api";
+import { useAgentState, useMeta, useRefreshNow } from "../lib/api";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: "M4 6h16M4 12h16M4 18h16" },
@@ -36,6 +36,51 @@ function Logo() {
   );
 }
 
+function RefreshStatus() {
+  const { data } = useAgentState();
+  const refresh = useRefreshNow();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const running = data?.running || refresh.isPending;
+  const completedAt = data?.completedAt ?? null;
+  const ageMin = completedAt ? (Date.now() - completedAt) / 60_000 : null;
+  // green < 15m · yellow 15–30m · red > 30m
+  const tone =
+    ageMin === null ? "text-ink-muted" : ageMin < 15 ? "text-bull" : ageMin < 30 ? "text-amber" : "text-bear";
+  const dot =
+    ageMin === null ? "bg-ink-muted" : ageMin < 15 ? "bg-bull" : ageMin < 30 ? "bg-amber" : "bg-bear";
+  const label = running
+    ? "Refreshing…"
+    : completedAt
+    ? `Updated ${ageMin! < 1 ? "just now" : `${Math.floor(ageMin!)}m ago`}`
+    : "Awaiting first cycle";
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-ink-muted">
+        <span className={`w-2 h-2 rounded-full ${dot} ${running ? "animate-pulse" : ""}`} />
+        <span className={tone}>{label}</span>
+      </div>
+      <button
+        onClick={() => refresh.mutate()}
+        disabled={running}
+        title="Run a full macro + pair analysis cycle now"
+        className="flex items-center gap-1 text-[11px] font-medium text-ink border border-card-border rounded-full px-2.5 py-1 hover:border-accent/40 disabled:opacity-50 transition-colors"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={running ? "animate-spin" : ""}>
+          <path d="M23 4v6h-6M1 20v-6h6" />
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+        </svg>
+        Refresh
+      </button>
+    </div>
+  );
+}
+
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { data: meta } = useMeta();
@@ -47,6 +92,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="flex items-center justify-between px-5 py-3 border-b border-card-border/60 sticky top-0 bg-app/80 backdrop-blur z-20">
         <Logo />
         <div className="flex items-center gap-3">
+          <RefreshStatus />
           <button className="relative text-ink-muted hover:text-ink transition-colors" title="Notifications">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />

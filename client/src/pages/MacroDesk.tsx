@@ -16,7 +16,8 @@ const CATEGORY_TINT: Record<string, string> = {
 
 function BiasCard({ id, aiOn, category }: { id: string; aiOn: boolean; category?: string }) {
   const { data: quotes } = useQuotes();
-  const bias = useBias(id, aiOn);
+  const bias = useBias(id);
+  void aiOn;
   const [showQuick, setShowQuick] = useState(false);
   const navigate = useNavigate();
   const q = quotes?.quotes[id];

@@ -29,6 +29,16 @@ Watchlist markets: XAUUSD (Gold), US100 (NASDAQ/NQ), SPX (S&P 500/ES), EURUSD, G
 
 Everything labelled **Live** comes from a real source. Numeric prices/charts come from a market-data provider API. News and the economic calendar come either from a dedicated provider or — in **hybrid mode** — from **Claude's live `web_search` tool** (labelled provider `web-search`), which retrieves them from real pages at request time. Derived metrics (capital flow, currency strength, relative strength, sentiment breadth) are computed from real quotes/candles and labelled **computed**. When no source can serve a symbol, panels show **"data unavailable"** — nothing is fabricated. The AI layer is instructed to summarise only fetched data and to treat its output as decision support, never a trade signal.
 
+### Scheduled agent engine (autonomous refresh)
+
+The AI runs **server-side on a 15-minute cycle** — the frontend never calls the AI, it only polls cached results.
+
+1. **Global Macro Agent** (once per cycle) does the *only* web research: USD strength (DXY), risk sentiment, yields, central banks, major news, calendar highlights → a cached `macro_context` (also feeds the news feed + For-You briefing, so no duplicate web searches).
+2. **Pair Agents** (one per market, in parallel) *interpret only* — they combine `macro_context` with the real price + technicals and never invent numbers → per-pair analysis (bias, confidence, edge factor, mood, policy, flow/bearing/pulse, drivers, risks, trading narrative, invalidation).
+3. Results are stored in an in-memory cycle cache; the client light-polls `/api/agents/state` every 15s.
+
+A **freshness indicator** in the header (green <15m · amber 15–30m · red >30m) and a **Refresh Now** button (`POST /api/agents/refresh`) trigger a full cycle on demand. This keeps AI cost predictable: one macro web-research pass + 7 interpretation calls per cycle, not per page view.
+
 ### Hybrid data mode (minimal keys)
 
 You do **not** need the news/calendar provider keys. With just a quote key + `ANTHROPIC_API_KEY`:
@@ -96,6 +106,7 @@ Provider adapters are chained (Twelve Data → Finnhub → FMP) and swappable; e
 
 - `GET /api/market/quotes|candles/:id|capital-flow|currency-strength|relative-strength|meta`
 - `GET /api/news` · `GET /api/calendar?from&to`
-- `POST /api/ai/bias|edge-factor|briefing|calendar-event|coaching|psychology` · `GET /api/ai/reports|status`
+- `GET /api/agents/state` (cached macro + pair cycle) · `POST /api/agents/refresh` (Refresh Now)
+- `POST /api/ai/calendar-event|coaching|psychology` · `GET /api/ai/reports|status` (on-demand; bias/edge/briefing now come from the agent cycle)
 - `GET|POST|PUT|DELETE /api/journal/trades` · `GET /api/journal/stats|psychology` · `GET|PUT /api/journal/settings`
 - `GET|POST /api/community` · `POST /api/community/:id/vote`

@@ -21,9 +21,10 @@ export async function aiJson<T>(opts: {
   prompt: string;
   schema: Record<string, unknown>;
   maxTokens?: number;
+  noCache?: boolean;
 }): Promise<T | null> {
   if (!client) return null;
-  return cached(opts.cacheKey, opts.ttlMs, async () => {
+  const run = async () => {
     try {
       const response = await client.messages.create({
         model: config.anthropicModel,
@@ -44,7 +45,8 @@ export async function aiJson<T>(opts: {
       console.warn(`[ai] call failed for ${opts.cacheKey}: ${(err as Error).message}`);
       return null;
     }
-  });
+  };
+  return opts.noCache ? run() : cached(opts.cacheKey, opts.ttlMs, run);
 }
 
 /** Pull the first balanced JSON object/array out of a text blob (handles ``` fences and prose). */
@@ -84,9 +86,10 @@ export async function aiWebSearch<T>(opts: {
   prompt: string;
   maxUses?: number;
   maxTokens?: number;
+  noCache?: boolean;
 }): Promise<T | null> {
   if (!client) return null;
-  return cached(opts.cacheKey, opts.ttlMs, async () => {
+  const run = async () => {
     try {
       const tools = [
         { type: "web_search_20260209", name: "web_search", max_uses: opts.maxUses ?? 5 },
@@ -125,5 +128,6 @@ export async function aiWebSearch<T>(opts: {
       console.warn(`[ai] web-search failed for ${opts.cacheKey}: ${(err as Error).message}`);
       return null;
     }
-  });
+  };
+  return opts.noCache ? run() : cached(opts.cacheKey, opts.ttlMs, run);
 }

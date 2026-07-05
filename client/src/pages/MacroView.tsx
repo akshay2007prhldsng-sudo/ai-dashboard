@@ -125,6 +125,26 @@ export function MacroView() {
         </Card>
       </div>
 
+      {/* Trade plan — narrative, risks, invalidation (from the pair agent) */}
+      {edge.data?.tradingNarrative && (
+        <Card>
+          <SectionTitle title="Trade plan" right={<AiTag />} />
+          <p className="text-xs text-ink-muted leading-relaxed">{edge.data.tradingNarrative}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+            <div className="rounded-xl bg-card-alt border border-card-border p-3">
+              <p className="text-[11px] font-semibold text-amber mb-2">Risks</p>
+              {(edge.data.risks ?? []).map((r, i) => (
+                <p key={i} className="text-[11px] text-ink-muted leading-relaxed mb-1">⚠ {r}</p>
+              ))}
+            </div>
+            <div className="rounded-xl bg-card-alt border border-card-border p-3">
+              <p className="text-[11px] font-semibold text-bear mb-2">Invalidation</p>
+              <p className="text-[11px] text-ink-muted leading-relaxed">{edge.data.invalidationLevel}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Regime cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <RegimeCard

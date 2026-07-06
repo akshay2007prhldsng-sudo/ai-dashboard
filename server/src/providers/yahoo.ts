@@ -34,11 +34,39 @@ async function chart(symbol: string, interval: string, range: string): Promise<a
   throw lastErr ?? new Error("Yahoo: request failed");
 }
 
-const RANGE: Record<string, { interval: string; range: string }> = {
-  "5min": { interval: "5m", range: "5d" },
-  "1h": { interval: "60m", range: "1mo" },
-  "1day": { interval: "1d", range: "6mo" },
+// Ordered fallback plans per timeframe. Some symbols (esp. futures) reject
+// certain interval/range combos, so we try a few until one returns candles.
+const PLANS: Record<string, { interval: string; range: string }[]> = {
+  "5min": [
+    { interval: "5m", range: "1d" },
+    { interval: "5m", range: "5d" },
+    { interval: "15m", range: "5d" },
+    { interval: "30m", range: "1mo" },
+  ],
+  "1h": [
+    { interval: "60m", range: "5d" },
+    { interval: "60m", range: "1mo" },
+    { interval: "1d", range: "3mo" },
+  ],
+  "1day": [
+    { interval: "1d", range: "6mo" },
+    { interval: "1d", range: "1y" },
+  ],
 };
+
+function parseCandles(r: any): { t: number; o: number; h: number; l: number; c: number }[] {
+  const ts: number[] = r.timestamp ?? [];
+  const q = r.indicators?.quote?.[0] ?? {};
+  return ts
+    .map((t, i) => ({
+      t: t * 1000,
+      o: Number(q.open?.[i]),
+      h: Number(q.high?.[i]),
+      l: Number(q.low?.[i]),
+      c: Number(q.close?.[i]),
+    }))
+    .filter((c) => Number.isFinite(c.c) && Number.isFinite(c.o));
+}
 
 export const yahooProvider: QuoteProvider = {
   name: "yahoo",
@@ -63,28 +91,26 @@ export const yahooProvider: QuoteProvider = {
   },
 
   async getCandles(inst, interval, points) {
-    const cfg = RANGE[interval];
-    const r = await chart(inst.yahoo!, cfg.interval, cfg.range);
-    const ts: number[] = r.timestamp ?? [];
-    const q = r.indicators?.quote?.[0] ?? {};
-    const candles = ts
-      .map((t, i) => ({
-        t: t * 1000,
-        o: Number(q.open?.[i]),
-        h: Number(q.high?.[i]),
-        l: Number(q.low?.[i]),
-        c: Number(q.close?.[i]),
-      }))
-      .filter((c) => Number.isFinite(c.c) && Number.isFinite(c.o));
-    if (!candles.length) throw new Error(`Yahoo: no candles for ${inst.id}`);
-    const series: CandleSeries = {
-      id: inst.id,
-      interval,
-      candles: candles.slice(-points),
-      provider: this.name,
-      timestamp: Date.now(),
-    };
-    return series;
+    const plans = PLANS[interval] ?? PLANS["1h"];
+    let lastErr: Error | null = null;
+    for (const plan of plans) {
+      try {
+        const r = await chart(inst.yahoo!, plan.interval, plan.range);
+        const candles = parseCandles(r);
+        if (candles.length) {
+          return {
+            id: inst.id,
+            interval,
+            candles: candles.slice(-points),
+            provider: this.name,
+            timestamp: Date.now(),
+          } satisfies CandleSeries;
+        }
+      } catch (err) {
+        lastErr = err as Error;
+      }
+    }
+    throw lastErr ?? new Error(`Yahoo: no candles for ${inst.id}`);
   },
 };
 

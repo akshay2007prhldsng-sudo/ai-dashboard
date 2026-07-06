@@ -207,7 +207,7 @@ export function CalendarPage() {
           <SectionTitle title="No events" right={<LiveBadge label="Calendar" />} />
           <Unavailable what={data ? "no events match the filters — calendar data" : "calendar data"} />
           <p className="text-[10px] text-ink-muted mt-2">
-            Configure FMP_API_KEY or FINNHUB_API_KEY in server/.env for the live economic calendar.
+            The calendar is scraped from ForexFactory's public feed — if it stays empty, that source may be unreachable from your network.
           </p>
         </Card>
       )}

@@ -51,7 +51,7 @@ No paid data APIs. Everything is scraped from public sources server-side, then i
 | Economic calendar | **ForexFactory** public weekly JSON | Keyless |
 | AI analysis | **Anthropic** (Claude) | `ANTHROPIC_API_KEY` |
 
-Yahoo requests are throttled (250 ms gap) and cached; RSS/calendar are cached for 5–30 min. The keyed price providers (Twelve Data/Finnhub/FMP) remain only as an optional fallback if Yahoo is blocked on your network — set one of their keys and it's picked up automatically. Scraped endpoints are unofficial (no SLA); if a source blocks you, the panel shows "data unavailable" rather than fabricating.
+Yahoo requests are throttled (250 ms gap) and cached; RSS/calendar are cached for 5–30 min. Scraped endpoints are unofficial (no SLA); if a source blocks you, the panel shows "data unavailable" (with the reason in the diagnostics strip) rather than fabricating.
 
 ## Setup
 
@@ -78,15 +78,9 @@ Open http://localhost:5173.
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | [Anthropic](https://console.anthropic.com) | All AI analysis (macro + pair agents) | **Yes — the only one** |
 | _(none)_ | Yahoo Finance / RSS / ForexFactory | Prices, candles, news, calendar (scraped keyless) | Keyless |
-| `TWELVEDATA_API_KEY` | [Twelve Data](https://twelvedata.com) | Optional price fallback if Yahoo is blocked | Optional |
-| `FINNHUB_API_KEY` / `FMP_API_KEY` | Finnhub / FMP | Optional price fallback | Optional |
 | `TRADER_NAME` | — | Dashboard greeting | Optional |
 
-### What each key unlocks
-
-- **Prices/candles/capital flow/currency strength** → Yahoo Finance, keyless. Add `TWELVEDATA_API_KEY`/`FINNHUB_API_KEY`/`FMP_API_KEY` only as a fallback.
-- **News feed & economic calendar** → scraped keyless (RSS + ForexFactory) — no key.
-- **All AI analysis panels** → `ANTHROPIC_API_KEY` (model via `ANTHROPIC_MODEL`, default `claude-opus-4-8`).
+There are **no data-API keys anywhere in the codebase** — the keyed providers (Twelve Data / Finnhub / FMP / Marketaux) have been removed entirely. A **diagnostics strip** on the dashboard shows per-source health after every cycle (e.g. `Prices: 7/7 quotes (Yahoo) · News: 28 headlines (RSS) · Calendar: 42 events (ForexFactory) · AI: ok`), so a blocked source or a broken Anthropic key is immediately visible instead of silently empty panels.
 
 The journal, risk layer, position-size calculator and session clocks work **without any keys**.
 
@@ -98,7 +92,7 @@ The journal, risk layer, position-size calculator and session clocks work **with
   src/components     Card, Gauge, MiniChart, Heatmap, badges…
   src/lib            api hooks, session clocks, position sizing, palette
 /server              Express + Prisma (keys live here)
-  src/providers      yahoo / twelvedata / finnhub / fmp price adapters
+  src/providers      yahoo price scraper (keyless)
   src/providers/scrape  rss (news) + forexfactory (calendar) keyless scrapers
   src/agents         scheduler + macro/pair agents (interpret scraped data)
   src/routes         /api/market /api/news /api/calendar /api/ai /api/journal
@@ -106,7 +100,7 @@ The journal, risk layer, position-size calculator and session clocks work **with
   prisma             SQLite schema (Trade, Settings, Report)
 ```
 
-Provider adapters are chained (Yahoo → Twelve Data → Finnhub → FMP) and swappable; every endpoint has a 45s–10min in-memory cache, quote requests are batched where the provider supports it, stale values are served if a refresh is throttled, and every panel shows a "Last update" timestamp.
+All market data flows through the keyless Yahoo scraper (throttled, cached 60s–2min, stale-served on transient failures); news and calendar come from the RSS/ForexFactory scrapers (cached 5–30 min). Every panel shows a "Last update" timestamp.
 
 ## API endpoints
 

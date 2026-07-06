@@ -13,6 +13,7 @@ agentsRouter.get("/state", (_req, res) => {
     completedAt: cycleState.completedAt,
     intervalMs: cycleState.intervalMs,
     error: cycleState.error,
+    sources: cycleState.sources,
     macro: cycleState.macro,
     pairs: cycleState.pairs,
   });

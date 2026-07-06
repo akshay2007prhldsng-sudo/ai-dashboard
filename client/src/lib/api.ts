@@ -81,25 +81,14 @@ export function useRelativeStrength() {
   });
 }
 
-// News now comes from the scheduled Global Macro Agent (one web search per
-// cycle) instead of polling a provider — no duplicate web searches.
+// News comes straight from the scraped RSS feed on the server — deliberately
+// NOT routed through the AI, so headlines keep flowing even if the AI key fails.
 export function useNews() {
-  const q = useAgentState();
-  const macro = q.data?.macro;
-  const items: NewsItem[] = (macro?.majorNews ?? []).map((n, i) => ({
-    id: `macro-news-${i}-${n.url || n.headline}`,
-    headline: n.headline,
-    source: n.source ?? "web",
-    url: n.url ?? "",
-    publishedAt: new Date((macro?.timestamp ?? Date.now()) - (Number(n.minutesAgo) || 0) * 60_000).toISOString(),
-    category: "general",
-    summary: n.sentiment ? `Sentiment: ${n.sentiment}` : undefined,
-  }));
-  return {
-    data: macro ? { items, timestamp: macro.timestamp } : undefined,
-    isLoading: q.isLoading,
-    error: q.error,
-  };
+  return useQuery({
+    queryKey: ["news"],
+    queryFn: () => get<{ items: NewsItem[]; timestamp: number }>("/api/news"),
+    refetchInterval: 5 * 60_000,
+  });
 }
 
 export function useCalendar(from: string, to: string) {
@@ -156,7 +145,7 @@ export function useBias(instrument: string) {
   const q = useAgentState();
   const p = q.data?.pairs?.[instrument] ?? null;
   const data: BiasResult | undefined = p
-    ? { instrument, bias: p.bias, confidence: p.confidence, analysis: p.analysis, drivers: p.drivers, timestamp: p.timestamp }
+    ? { instrument, bias: p.bias, confidence: p.confidence, impact: p.impactScore, analysis: p.analysis, drivers: p.drivers, timestamp: p.timestamp }
     : undefined;
   return {
     data,

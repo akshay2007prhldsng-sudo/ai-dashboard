@@ -8,7 +8,7 @@ import {
   SectionTitle, Spinner, Unavailable,
 } from "../components/ui";
 import {
-  useAiStatus, useBias, useBriefing, useCapitalFlow, useCurrencyStrength,
+  useAgentState, useAiStatus, useBias, useBriefing, useCapitalFlow, useCurrencyStrength,
   useMeta, useNews, useQuotes,
 } from "../lib/api";
 import { clockIn, fmtPct, fmtPrice, timeAgo } from "../lib/format";
@@ -38,6 +38,7 @@ export function Dashboard() {
       </div>
 
       <SessionClocks />
+      <SourcesStrip />
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
         <div className="xl:col-span-3"><MacroDeskPreview /></div>
@@ -53,6 +54,39 @@ export function Dashboard() {
         <NewsFeed />
         <CurrencyStrength />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Per-source health from the last agent cycle. Makes "I see nothing" diagnosable:
+ * each scraped source (prices/news/calendar) and the AI show ok/error inline.
+ */
+function SourcesStrip() {
+  const { data } = useAgentState();
+  const s = data?.sources;
+  if (!s) return null;
+  const rows: { label: string; h: { ok: boolean; detail: string } }[] = [
+    { label: "Prices", h: s.prices },
+    { label: "News", h: s.news },
+    { label: "Calendar", h: s.calendar },
+    { label: "AI", h: s.ai },
+  ];
+  const anyDown = rows.some((r) => !r.h.ok);
+  return (
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-3 py-2 text-[11px] ${
+      anyDown ? "border-amber/40 bg-amber/5" : "border-card-border bg-card"
+    }`}>
+      <span className="text-ink-muted font-medium">Data sources</span>
+      {rows.map((r) => (
+        <span key={r.label} className="flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${r.h.ok ? "bg-bull" : "bg-bear"}`} />
+          <span className={r.h.ok ? "text-ink-muted" : "text-bear"}>
+            {r.label}: {r.h.detail}
+          </span>
+        </span>
+      ))}
+      {data?.error && <span className="text-bear">cycle: {data.error}</span>}
     </div>
   );
 }

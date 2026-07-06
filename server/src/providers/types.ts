@@ -55,7 +55,5 @@ export interface QuoteProvider {
   available(): boolean;
   supports(inst: Instrument): boolean;
   getQuote(inst: Instrument): Promise<Quote>;
-  /** Optional: fetch many quotes in one request (e.g. Twelve Data comma-separated symbols). */
-  getQuotesBatch?(insts: Instrument[]): Promise<Record<string, Quote>>;
   getCandles(inst: Instrument, interval: "5min" | "1h" | "1day", points: number): Promise<CandleSeries>;
 }

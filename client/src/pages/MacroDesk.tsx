@@ -49,7 +49,15 @@ function BiasCard({ id, aiOn, category }: { id: string; aiOn: boolean; category?
         {bias.data ? (
           <>
             <ConfidenceBar value={bias.data.confidence} />
-            <div className="mt-1"><LastUpdated ts={bias.data.timestamp} /></div>
+            <div className="mt-1 flex items-center justify-between">
+              <LastUpdated ts={bias.data.timestamp} />
+              {bias.data.impact != null && (
+                <span className="text-[11px] tracking-wider" title={`Impact ${bias.data.impact}/5`}>
+                  <span className="text-amber">{"★".repeat(bias.data.impact)}</span>
+                  <span className="text-ink-muted/40">{"★".repeat(Math.max(0, 5 - bias.data.impact))}</span>
+                </span>
+              )}
+            </div>
             <div className="mt-2 rounded-lg bg-card-alt border border-card-border p-2.5 flex-1">
               <AiTag />
               <p className="text-[11px] text-ink-muted mt-1 leading-relaxed">{bias.data.analysis}</p>

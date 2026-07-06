@@ -32,6 +32,7 @@ const PAIR_SCHEMA = {
   properties: {
     bias: { type: "string", enum: ["Bullish", "Bearish", "Neutral"] },
     confidence: { type: "integer" },
+    impactScore: { type: "integer", enum: [1, 2, 3, 4, 5] },
     analysis: { type: "string" },
     overview: { type: "string" },
     edge: {
@@ -76,7 +77,7 @@ const PAIR_SCHEMA = {
     invalidationLevel: { type: "string" },
   },
   required: [
-    "bias", "confidence", "analysis", "overview", "edge", "mood", "policy",
+    "bias", "confidence", "impactScore", "analysis", "overview", "edge", "mood", "policy",
     "flow", "bearing", "pulse", "drivers", "risks", "tradingNarrative", "invalidationLevel",
   ],
   additionalProperties: false,
@@ -115,7 +116,8 @@ export async function runPairAgent(id: string, macro: MacroContext | null): Prom
       `INTERPRET the data below — do NOT invent any prices, numbers, or news; use only what is given. ` +
       `Combine the shared macro_context, the recent scraped headlines relevant to this pair, and its live ` +
       `price and technicals:\n${JSON.stringify(input, null, 2)}\n\n` +
-      `Produce the full analysis payload: bias + confidence (0-100) + a 2-3 sentence analysis; an ai overview; ` +
+      `Produce the full analysis payload: bias + confidence (0-100) + impactScore (1-5 stars: how impactful ` +
+      `current macro/news conditions are for this market) + a 2-3 sentence analysis; an ai overview; ` +
       `an edge factor (score 0-100 for how much macro and technicals AGREE on a tradable direction, a label, and an ` +
       `explanation ending in concrete risk advice); market mood (riskScore 0-100) with positioning; policy stance + outlook; ` +
       `flow (Thin/Healthy/Crowded) + bullets; bearing (e.g. "Choppy Down") + bullets; pulse (Quiet/Tradable/Wild, from ATR) + bullets; ` +

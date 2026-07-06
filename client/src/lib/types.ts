@@ -58,6 +58,7 @@ export interface BiasResult {
   instrument: string;
   bias: Bias;
   confidence: number;
+  impact?: number; // 1-5 ★
   analysis: string;
   drivers: string[];
   timestamp: number;
@@ -96,6 +97,7 @@ export interface PairAnalysis {
   instrument: string;
   bias: Bias;
   confidence: number;
+  impactScore: number; // 1-5 ★
   analysis: string;
   overview: string;
   edge: { score: number; label: string; explanation: string };
@@ -113,6 +115,11 @@ export interface PairAnalysis {
   timestamp: number;
 }
 
+export interface SourceHealth {
+  ok: boolean;
+  detail: string;
+}
+
 export interface AgentState {
   status: "idle" | "running" | "ok" | "error";
   running: boolean;
@@ -120,6 +127,7 @@ export interface AgentState {
   completedAt: number | null;
   intervalMs: number;
   error: string | null;
+  sources: { prices: SourceHealth; news: SourceHealth; calendar: SourceHealth; ai: SourceHealth } | null;
   macro: MacroContext | null;
   pairs: Record<string, PairAnalysis | null>;
 }

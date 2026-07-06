@@ -18,6 +18,7 @@ export interface PairAnalysis {
   instrument: string;
   bias: "Bullish" | "Bearish" | "Neutral";
   confidence: number;
+  impactScore: number; // 1-5 ★ how impactful current conditions are for this market
   analysis: string;
   overview: string;
   edge: { score: number; label: string; explanation: string };
@@ -35,6 +36,12 @@ export interface PairAnalysis {
   timestamp: number;
 }
 
+/** Per-source health, so "I see nothing" is diagnosable from the UI. */
+export interface SourceHealth {
+  ok: boolean;
+  detail: string; // e.g. "7/7 quotes", "28 headlines", "HTTP 403", "invalid x-api-key"
+}
+
 export interface CycleState {
   status: "idle" | "running" | "ok" | "error";
   running: boolean;
@@ -42,6 +49,7 @@ export interface CycleState {
   completedAt: number | null;
   intervalMs: number;
   error: string | null;
+  sources: { prices: SourceHealth; news: SourceHealth; calendar: SourceHealth; ai: SourceHealth } | null;
   macro: MacroContext | null;
   pairs: Record<string, PairAnalysis | null>;
 }
@@ -53,6 +61,7 @@ export const cycleState: CycleState = {
   completedAt: null,
   intervalMs: 15 * 60_000,
   error: null,
+  sources: null,
   macro: null,
   pairs: {},
 };

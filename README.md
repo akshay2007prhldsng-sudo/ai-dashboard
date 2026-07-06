@@ -27,28 +27,31 @@ Watchlist markets: XAUUSD (Gold), US100 (NASDAQ/NQ), SPX (S&P 500/ES), EURUSD, G
 
 ## Data integrity
 
-Everything labelled **Live** comes from a real source. Numeric prices/charts come from a market-data provider API. News and the economic calendar come either from a dedicated provider or — in **hybrid mode** — from **Claude's live `web_search` tool** (labelled provider `web-search`), which retrieves them from real pages at request time. Derived metrics (capital flow, currency strength, relative strength, sentiment breadth) are computed from real quotes/candles and labelled **computed**. When no source can serve a symbol, panels show **"data unavailable"** — nothing is fabricated. The AI layer is instructed to summarise only fetched data and to treat its output as decision support, never a trade signal.
+Everything labelled **Live** comes from a real source, scraped keyless from public pages/feeds — **no paid data APIs**. Numeric prices/candles come from **Yahoo Finance**; news from public **RSS feeds** (MarketWatch/CNBC/Investing/CoinDesk/Yahoo); the economic calendar from **ForexFactory's** public weekly JSON. Derived metrics (capital flow, currency strength, relative strength, sentiment breadth) are computed from real quotes/candles and labelled **computed**. When no source can serve a symbol, panels show **"data unavailable"** — nothing is fabricated. The AI interprets only this scraped data (it never invents prices, numbers, or news) and its output is decision support, never a trade signal.
 
 ### Scheduled agent engine (autonomous refresh)
 
 The AI runs **server-side on a 15-minute cycle** — the frontend never calls the AI, it only polls cached results.
 
-1. **Global Macro Agent** (once per cycle) does the *only* web research: USD strength (DXY), risk sentiment, yields, central banks, major news, calendar highlights → a cached `macro_context` (also feeds the news feed + For-You briefing, so no duplicate web searches).
-2. **Pair Agents** (one per market, in parallel) *interpret only* — they combine `macro_context` with the real price + technicals and never invent numbers → per-pair analysis (bias, confidence, edge factor, mood, policy, flow/bearing/pulse, drivers, risks, trading narrative, invalidation).
-3. Results are stored in an in-memory cycle cache; the client light-polls `/api/agents/state` every 15s.
+1. **Scrapers** (keyless) pull the raw data: Yahoo quotes, RSS headlines, ForexFactory calendar.
+2. **Global Macro Agent** (once per cycle) *interprets* that scraped data → a cached `macro_context` (USD strength, risk sentiment, yields, central banks, briefing, summary). The news + calendar it carries are the **real scraped items**; the AI only adds interpretation.
+3. **Pair Agents** (one per market, in parallel) *interpret only* — they combine `macro_context`, the pair-relevant scraped headlines, and the real price + technicals; they never invent numbers → per-pair analysis (bias, confidence, edge factor, mood, policy, flow/bearing/pulse, drivers, risks, trading narrative, invalidation).
+4. Results are stored in an in-memory cycle cache; the client light-polls `/api/agents/state` every 15s.
 
 A **freshness indicator** in the header (green <15m · amber 15–30m · red >30m) and a **Refresh Now** button (`POST /api/agents/refresh`) trigger a full cycle on demand. This keeps AI cost predictable: one macro web-research pass + 7 interpretation calls per cycle, not per page view.
 
-### Data sources — keyless by default
+### Data sources — 100% keyless scraping (only an Anthropic key)
 
-Prices and charts default to **Yahoo Finance**, which needs **no API key** and covers the whole watchlist — including the index/commodity futures (`NQ=F`, `ES=F`, `CL=F`, `GC=F`) that paid tiers gate. The provider chain is **Yahoo → Twelve Data → Finnhub → FMP**: Yahoo is tried first (keyless), and the keyed providers act only as fallback if Yahoo is unreachable on your network.
+No paid data APIs. Everything is scraped from public sources server-side, then interpreted by the AI:
 
-So the practical minimum is just `ANTHROPIC_API_KEY`:
+| Data | Source | Key? |
+|---|---|---|
+| Quotes & candles | **Yahoo Finance** (`GC=F`, `NQ=F`, `ES=F`, `CL=F`, `EURUSD=X`, `GBPUSD=X`, `BTC-USD`, …) | Keyless |
+| News feed | Public **RSS** — MarketWatch, CNBC, Investing, CoinDesk, Yahoo | Keyless |
+| Economic calendar | **ForexFactory** public weekly JSON | Keyless |
+| AI analysis | **Anthropic** (Claude) | `ANTHROPIC_API_KEY` |
 
-- **Quotes & charts** → Yahoo Finance (keyless, exact numbers). Web search is deliberately *not* used for prices — the AI never invents numbers.
-- **News, economic calendar, and macro narrative** → Claude's `web_search` tool via the scheduled Macro Agent (one pass per cycle).
-
-> Yahoo's endpoint is unofficial (no SLA). If it's blocked on your network or rate-limits you, add a `TWELVEDATA_API_KEY` (free tier) as a fallback — it's picked up automatically.
+Yahoo requests are throttled (250 ms gap) and cached; RSS/calendar are cached for 5–30 min. The keyed price providers (Twelve Data/Finnhub/FMP) remain only as an optional fallback if Yahoo is blocked on your network — set one of their keys and it's picked up automatically. Scraped endpoints are unofficial (no SLA); if a source blocks you, the panel shows "data unavailable" rather than fabricating.
 
 ## Setup
 
@@ -73,19 +76,17 @@ Open http://localhost:5173.
 
 | Key | Provider | Powers | Required? |
 |---|---|---|---|
-| _(none)_ | [Yahoo Finance](https://finance.yahoo.com) | Quotes + candles for the whole watchlist | **Keyless default** |
-| `ANTHROPIC_API_KEY` | [Anthropic](https://console.anthropic.com) | All AI panels **+ live web-search news/calendar** | **Yes** |
-| `TWELVEDATA_API_KEY` | [Twelve Data](https://twelvedata.com) | Quote/candle fallback if Yahoo is blocked | Optional |
-| `FINNHUB_API_KEY` | [Finnhub](https://finnhub.io) | Quote/candle fallback + news override | Optional |
-| `FMP_API_KEY` | [FMP](https://financialmodelingprep.com) | Quote/candle fallback + calendar override | Optional |
-| `MARKETAUX_API_KEY` | [Marketaux](https://marketaux.com) | Extra news source | Optional |
+| `ANTHROPIC_API_KEY` | [Anthropic](https://console.anthropic.com) | All AI analysis (macro + pair agents) | **Yes — the only one** |
+| _(none)_ | Yahoo Finance / RSS / ForexFactory | Prices, candles, news, calendar (scraped keyless) | Keyless |
+| `TWELVEDATA_API_KEY` | [Twelve Data](https://twelvedata.com) | Optional price fallback if Yahoo is blocked | Optional |
+| `FINNHUB_API_KEY` / `FMP_API_KEY` | Finnhub / FMP | Optional price fallback | Optional |
 | `TRADER_NAME` | — | Dashboard greeting | Optional |
 
 ### What each key unlocks
 
-- **Quotes/candles/capital flow/currency strength** → Yahoo Finance out of the box (no key). Add `TWELVEDATA_API_KEY`/`FINNHUB_API_KEY`/`FMP_API_KEY` only as a fallback.
-- **News feed & economic calendar** → `ANTHROPIC_API_KEY` (Macro Agent web search), or a dedicated key which then overrides it.
-- **All "AI Analysis" panels** → `ANTHROPIC_API_KEY` (model configurable via `ANTHROPIC_MODEL`, default `claude-opus-4-8`; must support the `web_search` tool).
+- **Prices/candles/capital flow/currency strength** → Yahoo Finance, keyless. Add `TWELVEDATA_API_KEY`/`FINNHUB_API_KEY`/`FMP_API_KEY` only as a fallback.
+- **News feed & economic calendar** → scraped keyless (RSS + ForexFactory) — no key.
+- **All AI analysis panels** → `ANTHROPIC_API_KEY` (model via `ANTHROPIC_MODEL`, default `claude-opus-4-8`).
 
 The journal, risk layer, position-size calculator and session clocks work **without any keys**.
 
@@ -97,7 +98,9 @@ The journal, risk layer, position-size calculator and session clocks work **with
   src/components     Card, Gauge, MiniChart, Heatmap, badges…
   src/lib            api hooks, session clocks, position sizing, palette
 /server              Express + Prisma (keys live here)
-  src/providers      yahoo / twelvedata / finnhub / fmp / news / calendar / websearch adapters
+  src/providers      yahoo / twelvedata / finnhub / fmp price adapters
+  src/providers/scrape  rss (news) + forexfactory (calendar) keyless scrapers
+  src/agents         scheduler + macro/pair agents (interpret scraped data)
   src/routes         /api/market /api/news /api/calendar /api/ai /api/journal
   src/ai             Anthropic client (JSON-schema outputs, cached)
   prisma             SQLite schema (Trade, Settings, Report)

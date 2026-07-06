@@ -6,7 +6,26 @@ import { aiJson } from "../ai/client.js";
 import { instrumentById } from "../instruments.js";
 import { technicalSnapshot } from "../lib/derived.js";
 import { getQuote } from "../providers/marketdata.js";
+import { getNews } from "../providers/news.js";
 import type { MacroContext, PairAnalysis } from "./store.js";
+
+// Keywords that make a scraped headline relevant to each market (per-pair focus).
+const KEYWORDS: Record<string, string[]> = {
+  XAUUSD: ["gold", "xau", "bullion", "fed", "inflation", "cpi", "yields", "safe haven", "geopolit"],
+  US100: ["nasdaq", "tech", "nvidia", "apple", "microsoft", "chip", "semiconductor", "earnings", " ai "],
+  SPX: ["s&p", "s and p", "stocks", "wall street", "earnings", "equities"],
+  EURUSD: ["euro", "ecb", "eurozone", "lagarde", "germany", "eur/usd"],
+  GBPUSD: ["pound", "sterling", "boe", "bank of england", "uk ", "britain", "gbp"],
+  BTCUSD: ["bitcoin", "btc", "crypto", "ether", "etf", "sec"],
+  USOIL: ["oil", "crude", "wti", "opec", "brent", "energy", "barrel"],
+};
+
+function relevantHeadlines(id: string, news: { headline: string; source: string }[]): { headline: string; source: string }[] {
+  const kw = KEYWORDS[id] ?? [];
+  const hits = news.filter((n) => kw.some((k) => n.headline.toLowerCase().includes(k)));
+  // Fall back to the general top headlines if nothing pair-specific matched.
+  return (hits.length ? hits : news).slice(0, 6);
+}
 
 const PAIR_SCHEMA = {
   type: "object",
@@ -66,7 +85,7 @@ const PAIR_SCHEMA = {
 export async function runPairAgent(id: string, macro: MacroContext | null): Promise<PairAnalysis | null> {
   const inst = instrumentById.get(id);
   if (!inst) return null;
-  const [quote, tech] = await Promise.all([getQuote(id), technicalSnapshot(id)]);
+  const [quote, tech, news] = await Promise.all([getQuote(id), technicalSnapshot(id), getNews()]);
   // No real data to interpret → don't fabricate; leave the pair blank this cycle.
   if (!quote && !tech) return null;
 
@@ -74,6 +93,7 @@ export async function runPairAgent(id: string, macro: MacroContext | null): Prom
     instrument: { id: inst.id, name: inst.name, category: inst.category },
     price: quote ? { price: quote.price, changePct: quote.changePct } : null,
     technicals: tech,
+    relevantHeadlines: relevantHeadlines(id, news.map((n) => ({ headline: n.headline, source: n.source }))),
     macroContext: macro
       ? {
           summary: macro.summary,
@@ -92,8 +112,9 @@ export async function runPairAgent(id: string, macro: MacroContext | null): Prom
     maxTokens: 2500,
     prompt:
       `You are the pair-analysis agent for ${inst.name} (${id}), an intraday trader's terminal. ` +
-      `INTERPRET the data below — do NOT invent any prices or numbers; use only what is given. ` +
-      `Combine the shared macro_context with this pair's live price and technicals:\n${JSON.stringify(input, null, 2)}\n\n` +
+      `INTERPRET the data below — do NOT invent any prices, numbers, or news; use only what is given. ` +
+      `Combine the shared macro_context, the recent scraped headlines relevant to this pair, and its live ` +
+      `price and technicals:\n${JSON.stringify(input, null, 2)}\n\n` +
       `Produce the full analysis payload: bias + confidence (0-100) + a 2-3 sentence analysis; an ai overview; ` +
       `an edge factor (score 0-100 for how much macro and technicals AGREE on a tradable direction, a label, and an ` +
       `explanation ending in concrete risk advice); market mood (riskScore 0-100) with positioning; policy stance + outlook; ` +

@@ -8,8 +8,11 @@ import { finnhubProvider } from "./finnhub.js";
 import { fmpProvider } from "./fmp.js";
 import { twelveDataProvider } from "./twelvedata.js";
 import type { CandleSeries, Quote, QuoteProvider } from "./types.js";
+import { yahooProvider } from "./yahoo.js";
 
-const CHAIN: QuoteProvider[] = [twelveDataProvider, finnhubProvider, fmpProvider];
+// Yahoo first: keyless and covers the full watchlist (incl. index/commodity
+// futures). Keyed providers stay as fallback if Yahoo is unreachable.
+const CHAIN: QuoteProvider[] = [yahooProvider, twelveDataProvider, finnhubProvider, fmpProvider];
 
 const QUOTE_TTL = 60_000; // 60s cache per quote
 const CANDLE_TTL = 120_000;

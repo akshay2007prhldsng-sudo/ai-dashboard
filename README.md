@@ -39,14 +39,16 @@ The AI runs **server-side on a 15-minute cycle** — the frontend never calls th
 
 A **freshness indicator** in the header (green <15m · amber 15–30m · red >30m) and a **Refresh Now** button (`POST /api/agents/refresh`) trigger a full cycle on demand. This keeps AI cost predictable: one macro web-research pass + 7 interpretation calls per cycle, not per page view.
 
-### Hybrid data mode (minimal keys)
+### Data sources — keyless by default
 
-You do **not** need the news/calendar provider keys. With just a quote key + `ANTHROPIC_API_KEY`:
+Prices and charts default to **Yahoo Finance**, which needs **no API key** and covers the whole watchlist — including the index/commodity futures (`NQ=F`, `ES=F`, `CL=F`, `GC=F`) that paid tiers gate. The provider chain is **Yahoo → Twelve Data → Finnhub → FMP**: Yahoo is tried first (keyless), and the keyed providers act only as fallback if Yahoo is unreachable on your network.
 
-- **Quotes & charts** → real market-data provider (exact numbers; web search is not precise enough for tick data or intraday candles).
-- **News, economic calendar, and all macro narrative** → Claude retrieves them live via its `web_search` tool.
+So the practical minimum is just `ANTHROPIC_API_KEY`:
 
-A dedicated provider key, when present, always takes priority over web search for its layer.
+- **Quotes & charts** → Yahoo Finance (keyless, exact numbers). Web search is deliberately *not* used for prices — the AI never invents numbers.
+- **News, economic calendar, and macro narrative** → Claude's `web_search` tool via the scheduled Macro Agent (one pass per cycle).
+
+> Yahoo's endpoint is unofficial (no SLA). If it's blocked on your network or rate-limits you, add a `TWELVEDATA_API_KEY` (free tier) as a fallback — it's picked up automatically.
 
 ## Setup
 
@@ -71,17 +73,18 @@ Open http://localhost:5173.
 
 | Key | Provider | Powers | Required? |
 |---|---|---|---|
-| `TWELVEDATA_API_KEY` | [Twelve Data](https://twelvedata.com) | Quotes + candles (FX, metals, indices, crypto, oil) | **Yes** (for prices/charts) |
-| `ANTHROPIC_API_KEY` | [Anthropic](https://console.anthropic.com) | All AI panels **+ live web-search news/calendar** in hybrid mode | **Yes** |
-| `FINNHUB_API_KEY` | [Finnhub](https://finnhub.io) | Quote/candle fallback + news (overrides web search) | Optional |
-| `FMP_API_KEY` | [FMP](https://financialmodelingprep.com) | Quote/candle fallback + calendar (overrides web search) | Optional |
+| _(none)_ | [Yahoo Finance](https://finance.yahoo.com) | Quotes + candles for the whole watchlist | **Keyless default** |
+| `ANTHROPIC_API_KEY` | [Anthropic](https://console.anthropic.com) | All AI panels **+ live web-search news/calendar** | **Yes** |
+| `TWELVEDATA_API_KEY` | [Twelve Data](https://twelvedata.com) | Quote/candle fallback if Yahoo is blocked | Optional |
+| `FINNHUB_API_KEY` | [Finnhub](https://finnhub.io) | Quote/candle fallback + news override | Optional |
+| `FMP_API_KEY` | [FMP](https://financialmodelingprep.com) | Quote/candle fallback + calendar override | Optional |
 | `MARKETAUX_API_KEY` | [Marketaux](https://marketaux.com) | Extra news source | Optional |
 | `TRADER_NAME` | — | Dashboard greeting | Optional |
 
 ### What each key unlocks
 
-- **Quotes/candles/capital flow/currency strength** → at least one of `TWELVEDATA_API_KEY`, `FINNHUB_API_KEY`, `FMP_API_KEY`. Index symbols (US30/US100/SPX/VIX/DXY/US10Y) are best covered by Twelve Data or FMP; Finnhub's free tier does not serve them.
-- **News feed & economic calendar** → a dedicated key (`FINNHUB_API_KEY`/`FMP_API_KEY`/`MARKETAUX_API_KEY`) **or** `ANTHROPIC_API_KEY` alone (hybrid mode → Claude web search).
+- **Quotes/candles/capital flow/currency strength** → Yahoo Finance out of the box (no key). Add `TWELVEDATA_API_KEY`/`FINNHUB_API_KEY`/`FMP_API_KEY` only as a fallback.
+- **News feed & economic calendar** → `ANTHROPIC_API_KEY` (Macro Agent web search), or a dedicated key which then overrides it.
 - **All "AI Analysis" panels** → `ANTHROPIC_API_KEY` (model configurable via `ANTHROPIC_MODEL`, default `claude-opus-4-8`; must support the `web_search` tool).
 
 The journal, risk layer, position-size calculator and session clocks work **without any keys**.
@@ -94,13 +97,13 @@ The journal, risk layer, position-size calculator and session clocks work **with
   src/components     Card, Gauge, MiniChart, Heatmap, badges…
   src/lib            api hooks, session clocks, position sizing, palette
 /server              Express + Prisma (keys live here)
-  src/providers      twelvedata / finnhub / fmp / news / calendar / websearch adapters
+  src/providers      yahoo / twelvedata / finnhub / fmp / news / calendar / websearch adapters
   src/routes         /api/market /api/news /api/calendar /api/ai /api/journal
   src/ai             Anthropic client (JSON-schema outputs, cached)
   prisma             SQLite schema (Trade, Settings, Report)
 ```
 
-Provider adapters are chained (Twelve Data → Finnhub → FMP) and swappable; every endpoint has a 45s–10min in-memory cache to respect free-tier rate limits, and every panel shows a "Last update" timestamp.
+Provider adapters are chained (Yahoo → Twelve Data → Finnhub → FMP) and swappable; every endpoint has a 45s–10min in-memory cache, quote requests are batched where the provider supports it, stale values are served if a refresh is throttled, and every panel shows a "Last update" timestamp.
 
 ## API endpoints
 

@@ -20,6 +20,7 @@ app.get("/api/health", (_req, res) => {
     ok: true,
     providers: {
       marketData: anyProviderConfigured(),
+      yahoo: true, // keyless default source
       twelvedata: Boolean(config.twelveDataKey),
       finnhub: Boolean(config.finnhubKey),
       fmp: Boolean(config.fmpKey),

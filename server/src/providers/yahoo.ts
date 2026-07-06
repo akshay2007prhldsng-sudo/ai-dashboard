@@ -9,11 +9,18 @@ import type { CandleSeries, Quote, QuoteProvider } from "./types.js";
 
 const HOSTS = ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"];
 
+// Yahoo symbols contain characters that must NOT be percent-encoded the normal
+// way: "=" in futures/FX (GC=F, EURUSD=X) must stay literal, while "^" in index
+// tickers (^VIX) must become %5E. encodeURIComponent breaks the "=" → do it by hand.
+function yahooPath(symbol: string): string {
+  return symbol.replace(/\^/g, "%5E");
+}
+
 async function chart(symbol: string, interval: string, range: string): Promise<any> {
   let lastErr: Error | null = null;
   for (const host of HOSTS) {
     try {
-      const url = `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`;
+      const url = `${host}/v8/finance/chart/${yahooPath(symbol)}?interval=${interval}&range=${range}`;
       const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" } });
       if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
       const json = await res.json();

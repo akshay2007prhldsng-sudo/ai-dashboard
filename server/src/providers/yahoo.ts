@@ -9,6 +9,22 @@ import type { CandleSeries, Quote, QuoteProvider } from "./types.js";
 
 const HOSTS = ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"];
 
+// Yahoo rate-limits bursts by IP. Serialise all requests with a minimum gap so
+// a full dashboard/agent-cycle load never fires dozens of calls at once (which
+// gets the IP throttled and makes even quotes fail). Caching + stale-serve in
+// marketdata.ts means this spacing is only paid on cold fetches.
+const MIN_GAP_MS = 250;
+let gate: Promise<unknown> = Promise.resolve();
+function throttle<T>(fn: () => Promise<T>): Promise<T> {
+  const run = async () => {
+    await new Promise((r) => setTimeout(r, MIN_GAP_MS));
+    return fn();
+  };
+  const next = gate.then(run, run);
+  gate = next.catch(() => {});
+  return next as Promise<T>;
+}
+
 // Yahoo symbols contain characters that must NOT be percent-encoded the normal
 // way: "=" in futures/FX (GC=F, EURUSD=X) must stay literal, while "^" in index
 // tickers (^VIX) must become %5E. encodeURIComponent breaks the "=" → do it by hand.
@@ -16,42 +32,35 @@ function yahooPath(symbol: string): string {
   return symbol.replace(/\^/g, "%5E");
 }
 
-async function chart(symbol: string, interval: string, range: string): Promise<any> {
-  let lastErr: Error | null = null;
-  for (const host of HOSTS) {
-    try {
-      const url = `${host}/v8/finance/chart/${yahooPath(symbol)}?interval=${interval}&range=${range}`;
-      const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" } });
-      if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
-      const json = await res.json();
-      const result = json?.chart?.result?.[0];
-      if (!result) throw new Error(json?.chart?.error?.description ?? "Yahoo: empty result");
-      return result;
-    } catch (err) {
-      lastErr = err as Error;
+function chart(symbol: string, interval: string, range: string): Promise<any> {
+  return throttle(async () => {
+    let lastErr: Error | null = null;
+    for (const host of HOSTS) {
+      try {
+        const url = `${host}/v8/finance/chart/${yahooPath(symbol)}?interval=${interval}&range=${range}`;
+        const res = await fetch(url, {
+          headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
+        const json = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) throw new Error(json?.chart?.error?.description ?? "Yahoo: empty result");
+        return result;
+      } catch (err) {
+        lastErr = err as Error;
+      }
     }
-  }
-  throw lastErr ?? new Error("Yahoo: request failed");
+    throw lastErr ?? new Error("Yahoo: request failed");
+  });
 }
 
-// Ordered fallback plans per timeframe. Some symbols (esp. futures) reject
-// certain interval/range combos, so we try a few until one returns candles.
-const PLANS: Record<string, { interval: string; range: string }[]> = {
-  "5min": [
-    { interval: "5m", range: "1d" },
-    { interval: "5m", range: "5d" },
-    { interval: "15m", range: "5d" },
-    { interval: "30m", range: "1mo" },
-  ],
-  "1h": [
-    { interval: "60m", range: "5d" },
-    { interval: "60m", range: "1mo" },
-    { interval: "1d", range: "3mo" },
-  ],
-  "1day": [
-    { interval: "1d", range: "6mo" },
-    { interval: "1d", range: "1y" },
-  ],
+// One request per timeframe, using ranges proven to work for all symbol types
+// (5m/1d is the same call the quote uses, so it resolves for futures too).
+const PLAN: Record<string, { interval: string; range: string }> = {
+  "5min": { interval: "5m", range: "1d" },
+  "1h": { interval: "60m", range: "5d" },
+  "1day": { interval: "1d", range: "6mo" },
 };
 
 function parseCandles(r: any): { t: number; o: number; h: number; l: number; c: number }[] {
@@ -91,26 +100,18 @@ export const yahooProvider: QuoteProvider = {
   },
 
   async getCandles(inst, interval, points) {
-    const plans = PLANS[interval] ?? PLANS["1h"];
-    let lastErr: Error | null = null;
-    for (const plan of plans) {
-      try {
-        const r = await chart(inst.yahoo!, plan.interval, plan.range);
-        const candles = parseCandles(r);
-        if (candles.length) {
-          return {
-            id: inst.id,
-            interval,
-            candles: candles.slice(-points),
-            provider: this.name,
-            timestamp: Date.now(),
-          } satisfies CandleSeries;
-        }
-      } catch (err) {
-        lastErr = err as Error;
-      }
-    }
-    throw lastErr ?? new Error(`Yahoo: no candles for ${inst.id}`);
+    const plan = PLAN[interval] ?? PLAN["1h"];
+    const r = await chart(inst.yahoo!, plan.interval, plan.range);
+    const candles = parseCandles(r);
+    if (!candles.length) throw new Error(`Yahoo: no candles for ${inst.id}`);
+    const series: CandleSeries = {
+      id: inst.id,
+      interval,
+      candles: candles.slice(-points),
+      provider: this.name,
+      timestamp: Date.now(),
+    };
+    return series;
   },
 };
 

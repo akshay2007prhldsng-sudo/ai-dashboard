@@ -8,4 +8,6 @@ export const config = {
   anthropicKey: process.env.ANTHROPIC_API_KEY ?? "",
   anthropicModel: process.env.ANTHROPIC_MODEL ?? "claude-opus-4-8",
   traderName: process.env.TRADER_NAME ?? "Trader",
+  // DEMO_MODE=1 fills every panel with realistic mock data (no keys/network).
+  demo: process.env.DEMO_MODE === "1" || process.env.DEMO_MODE === "true",
 };

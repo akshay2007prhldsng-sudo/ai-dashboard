@@ -8,6 +8,8 @@
 // skipped so we never fire duplicate agents.
 
 import { aiAvailable, aiLastError } from "../ai/client.js";
+import { config } from "../config.js";
+import { mockMacro, mockPair } from "../demo.js";
 import { INSTRUMENTS } from "../instruments.js";
 import { getCalendar } from "../providers/calendar.js";
 import { getQuotes } from "../providers/marketdata.js";
@@ -17,6 +19,20 @@ import { runPairAgent } from "./pair.js";
 import { cycleState, type SourceHealth } from "./store.js";
 
 const PAIR_IDS = INSTRUMENTS.map((i) => i.id);
+
+function runDemoCycle(): void {
+  cycleState.macro = mockMacro();
+  for (const id of PAIR_IDS) cycleState.pairs[id] = mockPair(id);
+  const ok = (detail: string): SourceHealth => ({ ok: true, detail });
+  cycleState.sources = {
+    prices: ok(`${PAIR_IDS.length}/${PAIR_IDS.length} quotes (demo)`),
+    news: ok("12 headlines (demo)"),
+    calendar: ok("7 events (demo)"),
+    ai: ok("demo mock — no AI call"),
+  };
+  cycleState.completedAt = Date.now();
+  cycleState.status = "ok";
+}
 
 async function scrapeAndReport(): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
@@ -57,6 +73,12 @@ export async function runCycle(): Promise<void> {
   console.log("[scheduler] cycle started");
 
   try {
+    if (config.demo) {
+      runDemoCycle();
+      console.log("[scheduler] demo cycle complete — mock data loaded");
+      return;
+    }
+
     // 1. Scrape raw data (fills the shared caches) + record per-source health.
     await scrapeAndReport();
 

@@ -1,4 +1,6 @@
 import { cached } from "../cache.js";
+import { config } from "../config.js";
+import { mockCalendar } from "../demo.js";
 import { fetchFFCalendar } from "./scrape/forexfactory.js";
 import type { EconomicEvent } from "./types.js";
 
@@ -7,6 +9,7 @@ import type { EconomicEvent } from "./types.js";
  * feed. No API key. Empty => "data unavailable" in the UI.
  */
 export function getCalendar(from: string, to: string): Promise<EconomicEvent[]> {
+  if (config.demo) return Promise.resolve(mockCalendar(from, to));
   return cached(`calendar:${from}:${to}`, 30 * 60_000, async () => {
     try {
       return await fetchFFCalendar(from, to);

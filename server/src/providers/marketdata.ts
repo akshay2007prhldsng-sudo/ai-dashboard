@@ -4,6 +4,8 @@
 // refresh fails so panels don't flicker empty on a transient throttle.
 
 import { cacheGetFresh, cacheGetStale, cacheSet } from "../cache.js";
+import { config } from "../config.js";
+import { mockCandles, mockQuote } from "../demo.js";
 import { symbolById, type Instrument } from "../instruments.js";
 import type { CandleSeries, Quote } from "./types.js";
 import { yahooProvider } from "./yahoo.js";
@@ -14,6 +16,7 @@ const CANDLE_TTL = 120_000;
 const qKey = (id: string) => `quote:${id}`;
 
 export async function getQuote(id: string): Promise<Quote | null> {
+  if (config.demo) return mockQuote(id);
   const inst = symbolById.get(id);
   if (!inst || !yahooProvider.supports(inst)) return null;
   const fresh = cacheGetFresh<Quote>(qKey(id));
@@ -43,6 +46,7 @@ export async function getCandles(
   interval: "5min" | "1h" | "1day",
   points: number
 ): Promise<CandleSeries | null> {
+  if (config.demo) return mockCandles(id, interval, points);
   const inst = symbolById.get(id);
   if (!inst || !yahooProvider.supports(inst)) return null;
   const key = `candles:${id}:${interval}:${points}`;

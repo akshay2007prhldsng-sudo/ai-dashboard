@@ -5,7 +5,11 @@ import {
 } from "recharts";
 import { Gauge } from "../components/Gauge";
 import { MiniChart } from "../components/MiniChart";
-import { BearingChart, FlowWaveform, GlobeGlyph, PulseLine, TrafficSlider } from "../components/RegimeVisuals";
+import {
+  BearingChart, FlowWaveform, PolicyBird, PulseLine, TrafficSlider,
+  bearingColor, bearingSummary, flowColor, flowSummary, moodColor, policyColor,
+  pulseColor, pulseSummary, regimeTint,
+} from "../components/RegimeVisuals";
 import {
   AiTag, Card, ChangePct, LastUpdated, LiveBadge, SectionTitle, Spinner, Unavailable,
 } from "../components/ui";
@@ -151,7 +155,8 @@ export function MacroView() {
           title="Flow"
           subtitle="Participation"
           headline={edge.data?.flow.level}
-          headlineColor={edge.data?.flow.level === "Crowded" ? "text-bear" : edge.data?.flow.level === "Thin" ? "text-amber" : "text-bull"}
+          tint={edge.data ? flowColor(edge.data.flow.level) : undefined}
+          summary={edge.data ? flowSummary(edge.data.flow.level) : undefined}
           bullets={edge.data?.flow.bullets}
           loading={edge.isLoading}
           visual={edge.data ? <FlowWaveform level={edge.data.flow.level} /> : null}
@@ -161,7 +166,8 @@ export function MacroView() {
           title="Bearing"
           subtitle="Directional structure"
           headline={edge.data?.bearing.label}
-          headlineColor={edge.data?.bearing.label.toLowerCase().includes("down") ? "text-bear" : edge.data?.bearing.label.toLowerCase().includes("up") ? "text-bull" : "text-amber"}
+          tint={edge.data ? bearingColor(edge.data.bearing.label) : undefined}
+          summary={edge.data ? bearingSummary(edge.data.bearing.label) : undefined}
           bullets={edge.data?.bearing.bullets}
           loading={edge.isLoading}
           visual={edge.data ? <BearingChart label={edge.data.bearing.label} /> : null}
@@ -170,7 +176,8 @@ export function MacroView() {
           title="Pulse"
           subtitle="Volatility regime"
           headline={edge.data?.pulse.level}
-          headlineColor={edge.data?.pulse.level === "Wild" ? "text-bear" : edge.data?.pulse.level === "Quiet" ? "text-ink-muted" : "text-bull"}
+          tint={edge.data ? pulseColor(edge.data.pulse.level) : undefined}
+          summary={edge.data ? pulseSummary(edge.data.pulse.level) : undefined}
           bullets={edge.data?.pulse.bullets}
           loading={edge.isLoading}
           visual={edge.data ? <PulseLine level={edge.data.pulse.level} /> : null}
@@ -188,22 +195,28 @@ export function MacroView() {
 
 function MoodPanel({ edge }: { edge: ReturnType<typeof useEdge>["data"] }) {
   const [open, setOpen] = useState(false);
+  const score = edge?.mood.riskScore ?? 50;
+  const color = moodColor(score);
+  const state = score >= 60 ? "Risk-On" : score <= 40 ? "Risk-Off" : "Neutral";
+  const oneLiner =
+    state === "Risk-On" ? "Investors are willing to take on risk."
+      : state === "Risk-Off" ? "Investors are reducing risk and seeking safety."
+      : "Positioning is balanced; no strong risk bias.";
   return (
-    <div className="rounded-xl bg-card-alt border border-card-border p-3">
+    <div className="rounded-xl border p-4" style={edge ? regimeTint(color) : undefined}>
       <SectionTitle title="Market Mood" />
       {edge ? (
         <>
-          <Gauge
-            value={edge.mood.riskScore}
-            leftLabel="RISK-OFF"
-            rightLabel="RISK-ON"
-            centerLabel={edge.mood.riskScore >= 60 ? "Risk-On" : edge.mood.riskScore <= 40 ? "Risk-Off" : "Neutral"}
-          />
-          <p className="text-[11px] font-semibold mt-2">Investor Positioning</p>
-          <p className={`text-[11px] text-ink-muted leading-relaxed ${open ? "" : "line-clamp-3"}`}>{edge.mood.positioning}</p>
-          <button onClick={() => setOpen(!open)} className="text-[10px] text-accent-bright mt-1 hover:underline">
-            {open ? "Collapse" : "Expand"}
+          <Gauge value={score} leftLabel="RISK-OFF" rightLabel="RISK-ON" centerLabel={state} color={color} />
+          <p className="text-[11px] font-semibold mt-3 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+            Investor Positioning
+          </p>
+          <p className={`text-[11px] text-ink-muted leading-relaxed mt-1 ${open ? "" : "line-clamp-3"}`}>{edge.mood.positioning}</p>
+          <button onClick={() => setOpen(!open)} className="text-[10px] mt-1 hover:underline" style={{ color }}>
+            {open ? "Show less" : "Read more"}
           </button>
+          <StatusBar color={color} tag={state} text={oneLiner} />
         </>
       ) : (
         <Unavailable what="mood" />
@@ -214,24 +227,32 @@ function MoodPanel({ edge }: { edge: ReturnType<typeof useEdge>["data"] }) {
 
 function PolicyPanel({ edge }: { edge: ReturnType<typeof useEdge>["data"] }) {
   const [open, setOpen] = useState(false);
-  const stanceColor =
-    edge?.policy.stance === "Hawkish" ? "text-bear" : edge?.policy.stance === "Dovish" ? "text-bull" : "text-neutral-badge";
+  const stance = edge?.policy.stance ?? "Neutral";
+  const color = policyColor(stance);
+  const oneLiner =
+    stance === "Hawkish" ? "Central banks leaning toward tighter policy."
+      : stance === "Dovish" ? "Central banks leaning toward easier policy."
+      : "Central banks maintaining a neutral stance.";
   return (
-    <div className="rounded-xl bg-card-alt border border-card-border p-3">
+    <div className="rounded-xl border p-4" style={edge ? regimeTint(color) : undefined}>
       <SectionTitle title="Market Policy" />
       {edge ? (
         <>
-          <div className="flex items-center gap-3 my-2">
-            <GlobeGlyph tone={edge.policy.stance === "Hawkish" ? TOKENS.bear : edge.policy.stance === "Dovish" ? TOKENS.bull : TOKENS.muted} />
-            <p className={`text-lg font-bold tracking-[0.3em] ${stanceColor}`}>
-              {edge.policy.stance.toUpperCase()}
+          <div className="flex items-center gap-4 my-1">
+            <PolicyBird stance={stance} />
+            <p className="text-2xl font-bold tracking-[0.28em]" style={{ color, textShadow: `0 0 20px ${color}55` }}>
+              {stance.toUpperCase()}
             </p>
           </div>
-          <p className="text-[11px] font-semibold">Global Economic Outlook</p>
-          <p className={`text-[11px] text-ink-muted leading-relaxed ${open ? "" : "line-clamp-3"}`}>{edge.policy.outlook}</p>
-          <button onClick={() => setOpen(!open)} className="text-[10px] text-accent-bright mt-1 hover:underline">
-            {open ? "Collapse" : "Expand"}
+          <p className="text-[11px] font-semibold mt-2 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+            Global Economic Outlook
+          </p>
+          <p className={`text-[11px] text-ink-muted leading-relaxed mt-1 ${open ? "" : "line-clamp-3"}`}>{edge.policy.outlook}</p>
+          <button onClick={() => setOpen(!open)} className="text-[10px] mt-1 hover:underline" style={{ color }}>
+            {open ? "Show less" : "Read more"}
           </button>
+          <StatusBar color={color} tag={stance} text={oneLiner} />
         </>
       ) : (
         <Unavailable what="policy" />
@@ -241,19 +262,20 @@ function PolicyPanel({ edge }: { edge: ReturnType<typeof useEdge>["data"] }) {
 }
 
 function RegimeCard({
-  title, subtitle, headline, headlineColor = "text-ink", bullets, loading, slider, visual,
+  title, subtitle, headline, tint, summary, bullets, loading, slider, visual,
 }: {
   title: string;
   subtitle?: string;
   headline?: string;
-  headlineColor?: string;
+  tint?: string;
+  summary?: string;
   bullets?: string[];
   loading: boolean;
   slider?: React.ReactNode;
   visual?: React.ReactNode;
 }) {
   return (
-    <Card>
+    <Card style={tint ? regimeTint(tint) : undefined}>
       <div className="flex items-center justify-between mb-1">
         <p className="text-xs font-medium text-ink-muted">{title}</p>
         {subtitle && <p className="text-[10px] text-ink-muted/70">{subtitle}</p>}
@@ -261,14 +283,18 @@ function RegimeCard({
       {headline ? (
         <>
           {visual && <div className="my-2">{visual}</div>}
-          <p className={`text-center text-base font-bold tracking-[0.2em] ${headlineColor}`}>
+          <p
+            className="text-center text-lg font-bold tracking-[0.22em]"
+            style={tint ? { color: tint, textShadow: `0 0 18px ${tint}66` } : undefined}
+          >
             {headline.toUpperCase()}
           </p>
           {slider}
-          <ul className="mt-3 space-y-1.5">
+          {summary && <p className="text-[11px] text-ink leading-relaxed mt-3 font-medium">{summary}</p>}
+          <ul className="mt-2 space-y-1.5">
             {bullets?.map((b, i) => (
               <li key={i} className="text-[11px] text-ink-muted flex gap-2">
-                <span className="text-accent-bright mt-0.5">•</span>
+                <span className="mt-0.5" style={{ color: tint ?? undefined }}>•</span>
                 {b}
               </li>
             ))}
@@ -280,6 +306,23 @@ function RegimeCard({
         <Unavailable />
       )}
     </Card>
+  );
+}
+
+/** Rounded status bar with a coloured tag + one-liner (DovyFX-style). */
+function StatusBar({ color, tag, text }: { color: string; tag: string; text: string }) {
+  return (
+    <div
+      className="mt-3 flex items-center justify-between rounded-lg bg-card/70 border px-3 py-2"
+      style={{ borderColor: `${color}44` }}
+    >
+      <p className="text-[11px] text-ink-muted">
+        <span className="font-semibold" style={{ color }}>{tag}:</span> {text}
+      </p>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+        <path d="M6 9l6 6 6-6" />
+      </svg>
+    </div>
   );
 }
 

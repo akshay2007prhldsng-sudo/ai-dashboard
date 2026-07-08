@@ -1,8 +1,8 @@
 // Custom SVG semicircular gauge (Risk-Off <-> Risk-On, etc.)
 
 export function Gauge({
-  value, leftLabel, rightLabel, centerLabel,
-}: { value: number; leftLabel: string; rightLabel: string; centerLabel: string }) {
+  value, leftLabel, rightLabel, centerLabel, color = "#10B981",
+}: { value: number; leftLabel: string; rightLabel: string; centerLabel: string; color?: string }) {
   const v = Math.max(0, Math.min(100, value));
   const angle = (v / 100) * 180; // 0 = far left, 180 = far right
   const rad = ((180 - angle) * Math.PI) / 180;
@@ -23,11 +23,11 @@ export function Gauge({
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 200 105" className="w-full max-w-[220px]">
-        {arc(2, 178, "#1C2A24", 10)}
-        {arc(2, Math.max(4, angle - 2), "#10B981", 10)}
-        <circle cx={nx} cy={ny} r="5" fill="#E6EDEA" stroke="#10B981" strokeWidth="2" />
-        <text x={cx} y={cy - 18} textAnchor="middle" fill="#E6EDEA" fontSize="13" fontWeight="700"
+      <svg viewBox="0 0 200 105" className="w-full max-w-[220px]" style={{ filter: `drop-shadow(0 0 8px ${color}55)` }}>
+        {arc(2, 178, "#262E38", 10)}
+        {arc(2, Math.max(4, angle - 2), color, 10)}
+        <circle cx={nx} cy={ny} r="5" fill="#E8ECF2" stroke={color} strokeWidth="2" />
+        <text x={cx} y={cy - 18} textAnchor="middle" fill="#E8ECF2" fontSize="13" fontWeight="700"
           style={{ letterSpacing: "0.2em" }}>
           {centerLabel.toUpperCase()}
         </text>

@@ -1,8 +1,66 @@
 // Visual "what's happening in the market" glyphs for the Macro-view regime cards.
-// Pure SVG, deterministic — mirror the HybridTrader deep-dive: an audio-style
-// waveform for Flow, a choppy red downtrend for Bearing, an ECG pulse for Pulse.
+// Pure SVG, deterministic, with soft glows and state-driven colour so each panel
+// takes on a tint that matches the data it shows (DovyFX-style).
 
+import type { CSSProperties } from "react";
 import { TOKENS } from "../lib/palette";
+
+/* ---------- state → colour ---------- */
+
+export function flowColor(level: string): string {
+  return level === "Crowded" ? TOKENS.bear : level === "Thin" ? TOKENS.amber : TOKENS.bull;
+}
+export function pulseColor(level: string): string {
+  return level === "Wild" ? TOKENS.bear : level === "Quiet" ? TOKENS.sky : TOKENS.bull;
+}
+export function bearingColor(label: string): string {
+  const l = label.toLowerCase();
+  return l.includes("down") ? TOKENS.bear : l.includes("up") ? TOKENS.bull : TOKENS.amber;
+}
+export function moodColor(score: number): string {
+  return score >= 60 ? TOKENS.bull : score <= 40 ? TOKENS.bear : TOKENS.sky;
+}
+export function policyColor(stance: string): string {
+  return stance === "Hawkish" ? TOKENS.bear : stance === "Dovish" ? TOKENS.bull : TOKENS.sky;
+}
+
+/* ---------- descriptive one-liners (more text, matching the reference) ---------- */
+
+export function flowSummary(level: string): string {
+  return level === "Crowded"
+    ? "Crowded tape — momentum may be over-extended."
+    : level === "Thin"
+    ? "Thin participation — liquidity is light and prone to slippage."
+    : "Normal participation — tape is well-structured.";
+}
+export function pulseSummary(level: string): string {
+  return level === "Wild"
+    ? "Volatility elevated — widen stops or reduce size."
+    : level === "Quiet"
+    ? "Volatility compressed — breakout potential building."
+    : "Volatility in a healthy band — setups have room to breathe.";
+}
+export function bearingSummary(label: string): string {
+  const l = label.toLowerCase();
+  return l.includes("down")
+    ? "Directional pressure lower — sell rallies, respect the trend."
+    : l.includes("up")
+    ? "Directional pressure higher — buy dips, respect the trend."
+    : "Price oscillating within bounds — fade the extremes.";
+}
+
+/* ---------- luxe tinted-card style ---------- */
+
+/** Soft radial glow + gradient wash + coloured border, keyed to the state colour. */
+export function regimeTint(hex: string): CSSProperties {
+  return {
+    background: `radial-gradient(130% 90% at 50% -10%, ${hex}26, transparent 55%), linear-gradient(180deg, ${hex}12, #13171C 72%)`,
+    borderColor: `${hex}55`,
+    boxShadow: `inset 0 1px 0 0 ${hex}2b, 0 12px 34px rgba(0,0,0,0.45)`,
+  };
+}
+
+/* ---------- glyphs ---------- */
 
 /** Traffic-light gradient slider (green → amber → red) with a marker at the active stop. */
 export function TrafficSlider({ levels, active }: { levels: string[]; active: string }) {
@@ -11,7 +69,7 @@ export function TrafficSlider({ levels, active }: { levels: string[]; active: st
   return (
     <div className="mt-3">
       <div className="relative h-2 rounded-full overflow-visible"
-        style={{ background: "linear-gradient(90deg,#22C55E 0%,#F59E0B 50%,#EF4444 100%)" }}>
+        style={{ background: "linear-gradient(90deg,#22C55E 0%,#F59E0B 50%,#EF4444 100%)", boxShadow: "0 0 12px rgba(0,0,0,0.4) inset" }}>
         <div
           className="absolute -top-1 w-4 h-4 rounded-full border-2 border-app shadow-md"
           style={{ left: `calc(${pct}% - 8px)`, background: "#E8ECF2" }}
@@ -26,82 +84,102 @@ export function TrafficSlider({ levels, active }: { levels: string[]; active: st
   );
 }
 
-/** Audio-style participation waveform. Denser + redder = more crowded. */
+/** Audio-style participation waveform, glowing in the state colour. */
 export function FlowWaveform({ level }: { level: "Thin" | "Healthy" | "Crowded" }) {
-  const bars = 28;
-  const color = level === "Crowded" ? TOKENS.bear : level === "Thin" ? TOKENS.amber : TOKENS.bull;
+  const bars = 30;
+  const color = flowColor(level);
   const intensity = level === "Crowded" ? 1 : level === "Healthy" ? 0.7 : 0.4;
   const heights = Array.from({ length: bars }, (_, i) => {
-    // Deterministic pseudo-random envelope, tallest in the middle.
     const env = Math.sin((i / (bars - 1)) * Math.PI);
     const jitter = ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1;
-    return 0.2 + env * intensity * (0.5 + jitter * 0.5);
+    return 0.18 + env * intensity * (0.5 + jitter * 0.5);
   });
   return (
-    <svg viewBox="0 0 120 40" className="w-full h-12" preserveAspectRatio="none">
+    <svg viewBox="0 0 120 44" className="w-full h-14" preserveAspectRatio="none" style={{ filter: `drop-shadow(0 0 6px ${color}66)` }}>
       {heights.map((h, i) => {
-        const barH = h * 34;
+        const barH = h * 38;
         const x = (i / bars) * 120 + 1;
         return (
-          <rect key={i} x={x} y={20 - barH / 2} width={120 / bars - 1.5} height={barH}
-            rx="1" fill={color} opacity={0.35 + h * 0.5} />
+          <rect key={i} x={x} y={22 - barH / 2} width={120 / bars - 1.6} height={barH}
+            rx="1.5" fill={color} opacity={0.35 + h * 0.55} />
         );
       })}
     </svg>
   );
 }
 
-/** Choppy declining area chart for market bearing. */
+/** Bearing: smooth flowing wave for a range, or a trending curve for up/down. Glows. */
 export function BearingChart({ label }: { label: string }) {
-  const down = label.toLowerCase().includes("down");
-  const up = label.toLowerCase().includes("up");
-  const color = down ? TOKENS.bear : up ? TOKENS.bull : TOKENS.amber;
-  const n = 26;
+  const l = label.toLowerCase();
+  const color = bearingColor(label);
+  const id = `bearing-${color.replace("#", "")}`;
+  const n = 72;
+  const trend = l.includes("down") ? -1 : l.includes("up") ? 1 : 0;
   const pts = Array.from({ length: n }, (_, i) => {
-    const trend = down ? 1 - i / (n - 1) : up ? i / (n - 1) : 0.5;
-    const chop = Math.sin(i * 1.7) * 0.12 + ((Math.sin(i * 91.7) * 4373.3) % 1) * 0.12;
-    const y = 4 + (1 - Math.max(0, Math.min(1, trend * 0.8 + 0.1 + chop))) * 30;
-    return [i * (120 / (n - 1)), y] as const;
+    const x = (i / (n - 1)) * 120;
+    let y: number;
+    if (trend === 0) {
+      // Smooth double sine — "range" oscillation.
+      y = 22 + Math.sin((i / (n - 1)) * Math.PI * 3.2) * 11;
+    } else {
+      // Gentle trend with a light wave riding on it.
+      const base = trend > 0 ? 34 - (i / (n - 1)) * 24 : 10 + (i / (n - 1)) * 24;
+      y = base + Math.sin((i / (n - 1)) * Math.PI * 2.4) * 3.5;
+    }
+    return [x, y] as const;
   });
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
-  const area = `${line} L120,38 L0,38 Z`;
-  const id = `bearing-${color.replace("#", "")}`;
+  const area = `${line} L120,44 L0,44 Z`;
   return (
-    <svg viewBox="0 0 120 40" className="w-full h-12" preserveAspectRatio="none">
+    <svg viewBox="0 0 120 44" className="w-full h-14" preserveAspectRatio="none" style={{ filter: `drop-shadow(0 0 6px ${color}55)` }}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+          <stop offset="0%" stopColor={color} stopOpacity={0.42} />
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
       </defs>
       <path d={area} fill={`url(#${id})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth="1.5" />
+      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
-/** ECG-style volatility pulse. Wilder = taller, redder spikes. */
+/** ECG-style volatility pulse, glowing. */
 export function PulseLine({ level }: { level: "Quiet" | "Tradable" | "Wild" }) {
-  const color = level === "Wild" ? TOKENS.bear : level === "Quiet" ? TOKENS.muted : TOKENS.bull;
-  const amp = level === "Wild" ? 15 : level === "Tradable" ? 10 : 4;
-  // One heartbeat spike centred, flat baseline either side.
-  const d = `M0,20 L38,20 L44,20 L48,${20 - amp} L52,${20 + amp} L56,20 L62,20 L120,20`;
+  const color = pulseColor(level);
+  const amp = level === "Wild" ? 16 : level === "Tradable" ? 10 : 4;
+  const d =
+    level === "Quiet"
+      ? "M0,22 L44,22 L48,20 L52,24 L56,22 L120,22"
+      : `M0,22 L34,22 L40,22 L46,${22 - amp} L52,${22 + amp} L58,22 L64,22 L70,${22 - amp * 0.5} L76,22 L120,22`;
   return (
-    <svg viewBox="0 0 120 40" className="w-full h-12" preserveAspectRatio="none">
-      <path d={d} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+    <svg viewBox="0 0 120 44" className="w-full h-14" preserveAspectRatio="none" style={{ filter: `drop-shadow(0 0 6px ${color}80)` }}>
+      <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
 
-/** Simple wireframe globe for the Market Policy panel. */
-export function GlobeGlyph({ tone = TOKENS.muted }: { tone?: string }) {
+/**
+ * Market-policy emblem: a refined bird-in-flight silhouette (dove for easy/
+ * neutral policy, hawk-tinted for tightening), with a soft gradient + glow.
+ */
+export function PolicyBird({ stance }: { stance: string }) {
+  const color = policyColor(stance);
+  const id = `policy-${color.replace("#", "")}`;
+  // Stylised bird in flight — swept wings + body + head.
+  const bird =
+    "M8 40 C 26 30, 40 30, 52 36 C 58 28, 70 22, 86 24 C 78 28, 74 33, 76 38 " +
+    "C 90 33, 104 37, 114 48 C 100 45, 88 48, 82 55 C 80 46, 68 46, 60 52 " +
+    "C 58 45, 44 44, 34 50 C 32 42, 20 40, 8 40 Z";
   return (
-    <svg viewBox="0 0 60 60" className="w-16 h-16 opacity-70">
-      <circle cx="30" cy="30" r="24" fill="none" stroke={tone} strokeWidth="1" />
-      <ellipse cx="30" cy="30" rx="10" ry="24" fill="none" stroke={tone} strokeWidth="1" />
-      <ellipse cx="30" cy="30" rx="20" ry="24" fill="none" stroke={tone} strokeWidth="0.7" opacity="0.6" />
-      <line x1="6" y1="30" x2="54" y2="30" stroke={tone} strokeWidth="1" />
-      <path d="M10 19 h40 M10 41 h40" stroke={tone} strokeWidth="0.7" opacity="0.6" />
+    <svg viewBox="0 0 120 72" className="w-24 h-16" style={{ filter: `drop-shadow(0 0 10px ${color}66)` }}>
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.9} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.35} />
+        </linearGradient>
+      </defs>
+      <path d={bird} fill={`url(#${id})`} stroke={color} strokeWidth="0.6" strokeOpacity={0.5} />
     </svg>
   );
 }

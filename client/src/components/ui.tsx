@@ -1,10 +1,15 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { timeAgo } from "../lib/format";
 import type { Bias } from "../lib/types";
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({
+  children, className = "", style,
+}: { children: ReactNode; className?: string; style?: CSSProperties }) {
   return (
-    <div className={`rounded-2xl bg-card border border-card-border shadow-glow p-4 ${className}`}>
+    <div
+      className={`rounded-2xl bg-card border border-card-border shadow-glow p-4 ${className}`}
+      style={style}
+    >
       {children}
     </div>
   );

@@ -142,8 +142,19 @@ const FLAVOR: Record<string, { bias: PairAnalysis["bias"]; conf: number; impact:
   USOIL: { bias: "Bearish", conf: 62, impact: 3, label: "Demand-led drift", drivers: ["Demand worries outweigh supply risk", "Builds in inventories", "OPEC headlines a wildcard"] },
 };
 
+const REGIME: Record<string, { flow: "Thin" | "Healthy" | "Crowded"; bearing: string; pulse: "Quiet" | "Tradable" | "Wild" }> = {
+  XAUUSD: { flow: "Healthy", bearing: "Grind Up", pulse: "Tradable" },
+  US100: { flow: "Crowded", bearing: "Grind Up", pulse: "Tradable" },
+  SPX: { flow: "Healthy", bearing: "Range", pulse: "Quiet" },
+  EURUSD: { flow: "Healthy", bearing: "Grind Up", pulse: "Tradable" },
+  GBPUSD: { flow: "Thin", bearing: "Range", pulse: "Quiet" },
+  BTCUSD: { flow: "Crowded", bearing: "Grind Up", pulse: "Wild" },
+  USOIL: { flow: "Healthy", bearing: "Choppy Down", pulse: "Tradable" },
+};
+
 export function mockPair(id: string): PairAnalysis {
   const f = FLAVOR[id] ?? { bias: "Neutral" as const, conf: 55, impact: 2, label: "Mixed", drivers: ["Awaiting a cleaner catalyst"] };
+  const rg = REGIME[id] ?? { flow: "Healthy" as const, bearing: "Range", pulse: "Tradable" as const };
   const q = mockQuote(id);
   const bullish = f.bias === "Bullish";
   return {
@@ -160,9 +171,9 @@ export function mockPair(id: string): PairAnalysis {
     },
     mood: { riskScore: bullish ? 70 : f.bias === "Bearish" ? 40 : 55, positioning: "Risk sentiment is constructive; participation is healthy without being euphoric." },
     policy: { stance: "Neutral", outlook: "Central banks are patient and data-dependent; the inflation path drives the next leg." },
-    flow: { level: "Healthy", bullets: ["Participation in the normal band", "No crowding extreme yet", "Room for a directional push"] },
-    bearing: { label: bullish ? "Grind Up" : f.bias === "Bearish" ? "Choppy Down" : "Sideways", bullets: ["Structure follows the macro lean", "Stops respected so far", "Wait for a clean break for continuation"] },
-    pulse: { level: "Tradable", bullets: ["ATR within historical norms", "Standard risk-reward achievable", "Normal stop sizing applies"] },
+    flow: { level: rg.flow, bullets: ["Volume within the expected range", "Fills should execute at quoted prices", "Flow conditions support standard position sizing"] },
+    bearing: { label: rg.bearing, bullets: ["High RSI 50-crosses indicate back-and-forth price action", "No sustained direction either side", "Mean-reversion setups favoured over breakouts"] },
+    pulse: { level: rg.pulse, bullets: ["ATR and BB width within historical norms", "Standard risk-reward ratios are achievable", "Normal stop sizing applies"] },
     drivers: f.drivers,
     risks: ["Hot CPI flips the dollar and risk tone", "Thin liquidity around the data release", "Headline / central-bank surprise"],
     tradingNarrative: `Let ${id} come to a level in line with the ${f.bias.toLowerCase()} lean; engage on confirmation, size to 1R, target 1:2–1:3, and move to break-even at 1.5R.`,
